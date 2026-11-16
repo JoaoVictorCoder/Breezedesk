@@ -1,0 +1,101 @@
+# App launcher: an image and buttons with hover effects.
+# Put any program, file, folder or URL in on_click.
+name = "launcher"
+x = 680
+y = 236
+width = 360
+height = 84
+opacity = 200           # a bit transparent...
+hover_opacity = 255     # ...until the mouse is over it
+
+[background]
+color = "#0E0F14B0"
+radius = 16
+border = "#FFFFFF22"
+
+# The logo opens the widgets folder ("." is relative to it)
+[[element]]
+type = "image"
+x = 12
+y = 12
+w = 60
+h = 60
+radius = 14
+path = "assets/plume.png"
+on_click = "."
+
+[[element]]
+type = "rect"
+x = 84
+y = 18
+w = 62
+h = 48
+radius = 10
+color = "#FFFFFF12"
+hover_color = "#5AC8FA55"
+on_click = "https://www.google.com"
+
+[[element]]
+type = "text"
+x = 115
+y = 32
+size = 13
+align = "center"
+text = "Browser"
+
+[[element]]
+type = "rect"
+x = 152
+y = 18
+w = 62
+h = 48
+radius = 10
+color = "#FFFFFF12"
+hover_color = "#5AC8FA55"
+on_click = "explorer.exe"
+
+[[element]]
+type = "text"
+x = 183
+y = 32
+size = 13
+align = "center"
+text = "Files"
+
+[[element]]
+type = "rect"
+x = 220
+y = 18
+w = 62
+h = 48
+radius = 10
+color = "#FFFFFF12"
+hover_color = "#5AC8FA55"
+on_click = "notepad.exe"
+
+[[element]]
+type = "text"
+x = 251
+y = 32
+size = 13
+align = "center"
+text = "Notepad"
+
+[[element]]
+type = "rect"
+x = 288
+y = 18
+w = 62
+h = 48
+radius = 10
+color = "#FFFFFF12"
+hover_color = "#5AC8FA55"
+on_click = "calc.exe"
+
+[[element]]
+type = "text"
+x = 319
+y = 32
+size = 13
+align = "center"
+text = "Calc"

@@ -43,6 +43,22 @@ impl Tray {
         }
         unsafe { Shell_NotifyIconW(NIM_ADD, &nid) };
     }
+
+    /// Shows a balloon/toast notification next to the tray icon.
+    pub fn notify(&self, title: &str, text: &str, warning: bool) {
+        let mut nid = self.data();
+        nid.uFlags = NIF_INFO;
+        nid.dwInfoFlags = if warning { NIIF_WARNING } else { NIIF_INFO };
+        let copy = |dst: &mut [u16], s: &str| {
+            let max = dst.len() - 1;
+            for (d, c) in dst.iter_mut().zip(s.encode_utf16().take(max)) {
+                *d = c;
+            }
+        };
+        copy(&mut nid.szInfoTitle, title);
+        copy(&mut nid.szInfo, text);
+        unsafe { Shell_NotifyIconW(NIM_MODIFY, &nid) };
+    }
 }
 
 impl Drop for Tray {

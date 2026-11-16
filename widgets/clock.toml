@@ -1,15 +1,16 @@
-# Simple clock. Drag it with the mouse; right click = menu.
+# Simple clock with a blurred background. Drag it with the mouse; right click = menu.
 name = "clock"
-x = 60
-y = 60
+x = 40
+y = 40
 width = 280
 height = 120
 update_ms = 1000
 
 [background]
-color = "#0E0F14B0"
+color = "#0E0F1480"
 radius = 16
 border = "#FFFFFF22"
+blur = "blur"            # none | blur | acrylic
 
 [[element]]
 type = "text"
@@ -26,4 +27,4 @@ y = 82
 size = 16
 align = "center"
 color = "#FFFFFFAA"
-text = "{time:%Y-%m-%d}"
+text = "{time('%A, %Y-%m-%d')}"

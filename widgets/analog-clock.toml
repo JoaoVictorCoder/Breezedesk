@@ -1,0 +1,200 @@
+# Analog clock: the hands are rectangles rotated with expressions.
+name = "analog-clock"
+x = 340
+y = 40
+width = 200
+height = 200
+update_ms = 1000
+hover_opacity = 255
+opacity = 220
+
+[background]
+color = "#0E0F14C0"
+radius = 100
+border = "#FFFFFF30"
+border_width = 2
+
+[[element]]
+type = "rect"
+x = 98
+y = 10
+w = 4
+h = 14
+radius = 1
+color = "#FFFFFFDD"
+rotate = 0
+rotate_center = [100, 100]
+
+[[element]]
+type = "rect"
+x = 99
+y = 10
+w = 2
+h = 8
+radius = 1
+color = "#FFFFFF66"
+rotate = 30
+rotate_center = [100, 100]
+
+[[element]]
+type = "rect"
+x = 99
+y = 10
+w = 2
+h = 8
+radius = 1
+color = "#FFFFFF66"
+rotate = 60
+rotate_center = [100, 100]
+
+[[element]]
+type = "rect"
+x = 98
+y = 10
+w = 4
+h = 14
+radius = 1
+color = "#FFFFFFDD"
+rotate = 90
+rotate_center = [100, 100]
+
+[[element]]
+type = "rect"
+x = 99
+y = 10
+w = 2
+h = 8
+radius = 1
+color = "#FFFFFF66"
+rotate = 120
+rotate_center = [100, 100]
+
+[[element]]
+type = "rect"
+x = 99
+y = 10
+w = 2
+h = 8
+radius = 1
+color = "#FFFFFF66"
+rotate = 150
+rotate_center = [100, 100]
+
+[[element]]
+type = "rect"
+x = 98
+y = 10
+w = 4
+h = 14
+radius = 1
+color = "#FFFFFFDD"
+rotate = 180
+rotate_center = [100, 100]
+
+[[element]]
+type = "rect"
+x = 99
+y = 10
+w = 2
+h = 8
+radius = 1
+color = "#FFFFFF66"
+rotate = 210
+rotate_center = [100, 100]
+
+[[element]]
+type = "rect"
+x = 99
+y = 10
+w = 2
+h = 8
+radius = 1
+color = "#FFFFFF66"
+rotate = 240
+rotate_center = [100, 100]
+
+[[element]]
+type = "rect"
+x = 98
+y = 10
+w = 4
+h = 14
+radius = 1
+color = "#FFFFFFDD"
+rotate = 270
+rotate_center = [100, 100]
+
+[[element]]
+type = "rect"
+x = 99
+y = 10
+w = 2
+h = 8
+radius = 1
+color = "#FFFFFF66"
+rotate = 300
+rotate_center = [100, 100]
+
+[[element]]
+type = "rect"
+x = 99
+y = 10
+w = 2
+h = 8
+radius = 1
+color = "#FFFFFF66"
+rotate = 330
+rotate_center = [100, 100]
+
+[[element]]
+type = "text"
+x = 100
+y = 128
+size = 13
+align = "center"
+color = "#FFFFFF88"
+text = "{time:%a %d}"
+
+# Hour hand
+[[element]]
+type = "rect"
+x = 97
+y = 52
+w = 6
+h = 52
+radius = 3
+color = "#FFFFFF"
+rotate = "hour12 * 30 + minute * 0.5"
+rotate_center = [100, 100]
+
+# Minute hand
+[[element]]
+type = "rect"
+x = 98.5
+y = 30
+w = 3
+h = 74
+radius = 1.5
+color = "#FFFFFFDD"
+rotate = "minute * 6 + second * 0.1"
+rotate_center = [100, 100]
+
+# Second hand
+[[element]]
+type = "rect"
+x = 99.25
+y = 24
+w = 1.5
+h = 92
+color = "#FF9F0A"
+rotate = "second * 6"
+rotate_center = [100, 100]
+
+[[element]]
+type = "rect"
+x = 95
+y = 95
+w = 10
+h = 10
+radius = 5
+color = "#FF9F0A"

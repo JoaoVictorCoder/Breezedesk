@@ -1,16 +1,20 @@
 [package]
 name = "plume"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2021"
 description = "Lightweight desktop widgets for Windows (Rainmeter-style), written in Rust"
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }
-toml = "0.8"
+serde_json = "1"
+toml = { version = "0.8", features = ["preserve_order"] }
 tiny-skia = { version = "0.11", default-features = false, features = ["std", "simd", "png-format"] }
 fontdue = "0.9"
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
-sysinfo = { version = "0.33", default-features = false, features = ["system", "network"] }
+sysinfo = { version = "0.33", default-features = false, features = ["system", "network", "disk", "component"] }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "bmp", "ico"] }
+roxmltree = "0.20"
+mlua = { version = "0.10", features = ["luajit", "vendored", "serialize"] }
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.59", features = [
@@ -19,9 +23,23 @@ windows-sys = { version = "0.59", features = [
     "Win32_UI_WindowsAndMessaging",
     "Win32_UI_HiDpi",
     "Win32_UI_Shell",
+    "Win32_UI_Input_KeyboardAndMouse",
     "Win32_System_Registry",
     "Win32_System_LibraryLoader",
     "Win32_System_Threading",
+    "Win32_System_Power",
+    "Win32_System_Performance",
+    "Win32_System_SystemInformation",
+    "Win32_Networking_WinHttp",
+] }
+# WinRT/COM APIs (now playing, audio loopback, GPU memory). Same version sysinfo already uses.
+windows = { version = "0.57", features = [
+    "Foundation",
+    "Media_Control",
+    "Storage_Streams",
+    "Win32_System_Com",
+    "Win32_Media_Audio",
+    "Win32_Graphics_Dxgi",
 ] }
 
 [profile.release]

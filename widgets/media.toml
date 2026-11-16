@@ -1,0 +1,165 @@
+# Now playing (Spotify, browsers, players...) with cover art, controls and an
+# audio visualizer. Click the cover to play/pause, scroll on it to change volume.
+name = "media"
+x = 680
+y = 40
+width = 360
+height = 176
+update_ms = 40          # fast updates for a smooth visualizer
+font = "C:/Windows/Fonts/segoeui.ttf"
+
+[variables]
+icons = "C:/Windows/Fonts/seguisym.ttf"
+
+[background]
+color = "#10121A90"
+radius = 18
+border = "#FFFFFF22"
+blur = "acrylic"
+
+# Placeholder when there is no cover
+[[element]]
+type = "rect"
+x = 16
+y = 16
+w = 96
+h = 96
+radius = 12
+color = "#FFFFFF14"
+
+[[element]]
+type = "text"
+x = 64
+y = 40
+size = 34
+align = "center"
+color = "#FFFFFF55"
+font = "C:/Windows/Fonts/seguisym.ttf"
+text = "♪"
+
+[[element]]
+type = "image"
+x = 16
+y = 16
+w = 96
+h = 96
+radius = 12
+path = "{media_cover}"
+on_click = "!media:playpause"
+on_scroll_up = "!volume:up"
+on_scroll_down = "!volume:down"
+
+[[element]]
+type = "text"
+x = 128
+y = 16
+size = 17
+text = "{media_active ? trunc(media_title, 26) : 'Nothing playing'}"
+
+[[element]]
+type = "text"
+x = 128
+y = 42
+size = 13
+color = "#FFFFFFAA"
+text = "{trunc(media_artist, 34)}"
+
+[[element]]
+type = "bar"
+x = 128
+y = 70
+w = 216
+h = 4
+radius = 2
+value = "media_progress"
+color = "#FFFFFFDD"
+
+[[element]]
+type = "text"
+x = 128
+y = 76
+size = 11
+color = "#FFFFFF88"
+text = "{media_active ? fmt_time(media_position) : ''}"
+
+[[element]]
+type = "text"
+x = 344
+y = 76
+size = 11
+align = "right"
+color = "#FFFFFF88"
+text = "{media_active ? fmt_time(media_duration) : ''}"
+
+# --- Buttons: a rect (click area + hover) with an icon on top ---
+[[element]]
+type = "rect"
+x = 168
+y = 96
+w = 40
+h = 26
+radius = 8
+color = "#FFFFFF10"
+hover_color = "#FFFFFF33"
+on_click = "!media:prev"
+
+[[element]]
+type = "text"
+x = 188
+y = 98
+size = 15
+align = "center"
+font = "C:/Windows/Fonts/seguisym.ttf"
+text = "⏮"
+
+[[element]]
+type = "rect"
+x = 216
+y = 96
+w = 40
+h = 26
+radius = 8
+color = "#FFFFFF10"
+hover_color = "#FFFFFF33"
+on_click = "!media:playpause"
+
+[[element]]
+type = "text"
+x = 236
+y = 98
+size = 15
+align = "center"
+font = "C:/Windows/Fonts/seguisym.ttf"
+text = "{media_playing ? '⏸' : '▶'}"
+
+[[element]]
+type = "rect"
+x = 264
+y = 96
+w = 40
+h = 26
+radius = 8
+color = "#FFFFFF10"
+hover_color = "#FFFFFF33"
+on_click = "!media:next"
+
+[[element]]
+type = "text"
+x = 284
+y = 98
+size = 15
+align = "center"
+font = "C:/Windows/Fonts/seguisym.ttf"
+text = "⏭"
+
+# Audio visualizer (what the speakers are playing)
+[[element]]
+type = "spectrum"
+x = 16
+y = 126
+w = 328
+h = 38
+bars = 48
+gap = 2
+radius = 1
+color = "#5AC8FA99"

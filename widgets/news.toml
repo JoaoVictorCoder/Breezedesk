@@ -1,0 +1,160 @@
+# RSS news reader. Click a headline to open it; scroll or use the arrows to page.
+# Works with any RSS or Atom feed: change the url below.
+name = "news"
+x = 1060
+y = 210
+width = 380
+height = 210
+update_ms = 1000
+
+[variables]
+page = 0
+pages = "{max(ceil(default(news.count, 0) / 4), 1)}"
+
+[[web]]
+name = "news"
+url = "https://feeds.bbci.co.uk/news/world/rss.xml"
+interval = 900
+format = "rss"
+
+[background]
+color = "#0E0F14B0"
+radius = 16
+border = "#FFFFFF22"
+
+[[element]]
+type = "text"
+x = 16
+y = 12
+size = 15
+text = "{web_ready('news') ? trunc(news.title, 34) : 'Loading news...'}"
+
+[[element]]
+type = "text"
+x = 300
+y = 13
+size = 12
+align = "center"
+color = "#FFFFFF88"
+text = "{page + 1} / {pages}"
+
+[[element]]
+type = "text"
+x = 278
+y = 8
+size = 18
+align = "center"
+color = "#FFFFFFAA"
+hover_color = "#FFFFFF"
+text = "‹"
+on_click = "!set:page = max(page - 1, 0)"
+
+[[element]]
+type = "text"
+x = 324
+y = 8
+size = 18
+align = "center"
+color = "#FFFFFFAA"
+hover_color = "#FFFFFF"
+text = "›"
+on_click = "!set:page = min(page + 1, pages - 1)"
+
+[[element]]
+type = "text"
+x = 356
+y = 10
+size = 15
+align = "center"
+color = "#FFFFFFAA"
+hover_color = "#FFFFFF"
+text = "↻"
+on_click = "!reload"
+
+[[element]]
+type = "rect"
+x = 10
+y = 44
+w = 360
+h = 34
+radius = 8
+color = "#FFFFFF00"
+hover_color = "#FFFFFF16"
+visible = "page * 4 + 0 < default(news.count, 0)"
+on_click = "{get('news.items.' + (page * 4 + 0) + '.link')}"
+on_scroll_up = "!set:page = max(page - 1, 0)"
+on_scroll_down = "!set:page = min(page + 1, pages - 1)"
+
+[[element]]
+type = "text"
+x = 20
+y = 51
+size = 14
+visible = "page * 4 + 0 < default(news.count, 0)"
+text = "{trunc(get('news.items.' + (page * 4 + 0) + '.title'), 40)}"
+
+[[element]]
+type = "rect"
+x = 10
+y = 82
+w = 360
+h = 34
+radius = 8
+color = "#FFFFFF00"
+hover_color = "#FFFFFF16"
+visible = "page * 4 + 1 < default(news.count, 0)"
+on_click = "{get('news.items.' + (page * 4 + 1) + '.link')}"
+on_scroll_up = "!set:page = max(page - 1, 0)"
+on_scroll_down = "!set:page = min(page + 1, pages - 1)"
+
+[[element]]
+type = "text"
+x = 20
+y = 89
+size = 14
+visible = "page * 4 + 1 < default(news.count, 0)"
+text = "{trunc(get('news.items.' + (page * 4 + 1) + '.title'), 40)}"
+
+[[element]]
+type = "rect"
+x = 10
+y = 120
+w = 360
+h = 34
+radius = 8
+color = "#FFFFFF00"
+hover_color = "#FFFFFF16"
+visible = "page * 4 + 2 < default(news.count, 0)"
+on_click = "{get('news.items.' + (page * 4 + 2) + '.link')}"
+on_scroll_up = "!set:page = max(page - 1, 0)"
+on_scroll_down = "!set:page = min(page + 1, pages - 1)"
+
+[[element]]
+type = "text"
+x = 20
+y = 127
+size = 14
+visible = "page * 4 + 2 < default(news.count, 0)"
+text = "{trunc(get('news.items.' + (page * 4 + 2) + '.title'), 40)}"
+
+[[element]]
+type = "rect"
+x = 10
+y = 158
+w = 360
+h = 34
+radius = 8
+color = "#FFFFFF00"
+hover_color = "#FFFFFF16"
+visible = "page * 4 + 3 < default(news.count, 0)"
+on_click = "{get('news.items.' + (page * 4 + 3) + '.link')}"
+on_scroll_up = "!set:page = max(page - 1, 0)"
+on_scroll_down = "!set:page = min(page + 1, pages - 1)"
+
+[[element]]
+type = "text"
+x = 20
+y = 165
+size = 14
+visible = "page * 4 + 3 < default(news.count, 0)"
+text = "{trunc(get('news.items.' + (page * 4 + 3) + '.title'), 40)}"

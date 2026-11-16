@@ -1,0 +1,86 @@
+# Current weather from open-meteo.com (free, no API key). The Lua script turns
+# the weather code into text and an icon. Change latitude/longitude/city below.
+name = "weather"
+x = 1060
+y = 40
+width = 260
+height = 150
+update_ms = 2000
+script = "weather.lua"
+
+[variables]
+city = "Sao Paulo"
+latitude = -23.55
+longitude = -46.63
+unit = "celsius"        # celsius | fahrenheit
+
+[[web]]
+name = "weather"
+url = "https://api.open-meteo.com/v1/forecast?latitude={latitude}&longitude={longitude}&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,weather_code,is_day&daily=temperature_2m_max,temperature_2m_min&timezone=auto&temperature_unit={unit}"
+interval = 900          # seconds
+format = "json"
+
+[background]
+color = "#0E0F14B0"
+radius = 16
+border = "#FFFFFF22"
+
+[[element]]
+type = "text"
+x = 16
+y = 12
+size = 14
+color = "#FFFFFFAA"
+text = "{city}"
+
+[[element]]
+type = "text"
+x = 16
+y = 40
+size = 16
+visible = "!web_ready('weather')"
+text = "Loading..."
+
+[[element]]
+type = "text"
+x = 16
+y = 32
+size = 46
+visible = "web_ready('weather')"
+text = "{round(weather.current.temperature_2m)}°"
+on_click = "https://open-meteo.com/"
+
+[[element]]
+type = "text"
+x = 244
+y = 30
+size = 40
+align = "right"
+font = "C:/Windows/Fonts/seguisym.ttf"
+text = "{icon}"
+
+[[element]]
+type = "text"
+x = 244
+y = 82
+size = 13
+align = "right"
+text = "{desc}"
+
+[[element]]
+type = "text"
+x = 16
+y = 96
+size = 12
+color = "#FFFFFFAA"
+visible = "web_ready('weather')"
+text = "Feels {round(weather.current.apparent_temperature)}°  ·  Humidity {weather.current.relative_humidity_2m}%"
+
+[[element]]
+type = "text"
+x = 16
+y = 118
+size = 12
+color = "#FFFFFFAA"
+visible = "web_ready('weather')"
+text = "High {round(weather.daily.temperature_2m_max.0)}°  ·  Low {round(weather.daily.temperature_2m_min.0)}°  ·  Wind {round(weather.current.wind_speed_10m)} km/h"

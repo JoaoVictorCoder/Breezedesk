@@ -1,33 +1,32 @@
-# System monitor: CPU, RAM and network.
-# Variables: {cpu} {ram} {ram_used} {ram_total} {net_down} {net_up} {uptime} {time:FORMAT}
+# System monitor: CPU, RAM, GPU, disk, temperatures, network and battery.
 name = "system"
-x = 60
-y = 200
+x = 40
+y = 180
 width = 280
-height = 190
+height = 262
 update_ms = 1000
-z = "bottom"        # bottom | normal | top
-opacity = 255
-draggable = true
-click_through = false
+
+[variables]
+accent = "#5AC8FA"
+hot = 80                # CPU % that turns the graph red
 
 [background]
 color = "#0E0F14B0"
 radius = 16
 border = "#FFFFFF22"
 
-# --- CPU ---
+# --- CPU (graph color changes with the load) ---
 [[element]]
 type = "text"
 x = 16
-y = 12
+y = 10
 size = 15
 text = "CPU"
 
 [[element]]
 type = "text"
 x = 264
-y = 12
+y = 10
 size = 15
 align = "right"
 text = "{cpu}%"
@@ -35,53 +34,123 @@ text = "{cpu}%"
 [[element]]
 type = "graph"
 x = 16
-y = 36
+y = 34
 w = 248
-h = 44
-source = "cpu"
-color = "#5AC8FA"
-fill = "#5AC8FA33"
+h = 40
+value = "cpu"
+color = "cpu > hot ? '#FF453A' : accent"
+fill = "cpu > hot ? '#FF453A33' : '#5AC8FA33'"
 line_width = 1.5
 
 # --- RAM ---
 [[element]]
 type = "text"
 x = 16
-y = 92
-size = 15
+y = 82
+size = 14
 text = "RAM"
 
 [[element]]
 type = "text"
 x = 264
-y = 92
-size = 15
+y = 82
+size = 14
 align = "right"
 text = "{ram_used} / {ram_total} GB"
 
 [[element]]
 type = "bar"
 x = 16
-y = 118
+y = 104
 w = 248
-h = 8
-radius = 4
-source = "ram"
+h = 6
+radius = 3
+value = "ram"
 color = "#FF9F0A"
 
-# --- Network ---
+# --- GPU ---
 [[element]]
 type = "text"
 x = 16
-y = 142
+y = 116
 size = 14
+text = "GPU"
+
+[[element]]
+type = "text"
+x = 264
+y = 116
+size = 14
+align = "right"
+text = "{is_null(gpu) ? 'n/a' : gpu + '%'}   VRAM {default(gpu_mem_used, '-')} GB"
+
+[[element]]
+type = "bar"
+x = 16
+y = 138
+w = 248
+h = 6
+radius = 3
+value = "default(gpu, 0)"
+color = "#BF5AF2"
+
+# --- Disk ---
+[[element]]
+type = "text"
+x = 16
+y = 150
+size = 14
+text = "Disk C:"
+
+[[element]]
+type = "text"
+x = 264
+y = 150
+size = 14
+align = "right"
+text = "{default(disk_free('C:'), '-')} GB free"
+
+[[element]]
+type = "bar"
+x = 16
+y = 172
+w = 248
+h = 6
+radius = 3
+value = "default(disk('C:'), 0)"
+color = "disk('C:') > 90 ? '#FF453A' : '#30D158'"
+
+# --- Temperatures, network, battery ---
+[[element]]
+type = "text"
+x = 16
+y = 186
+size = 13
+color = "#FFFFFFAA"
+text = "Temp  CPU {default(cpu_temp, '-')}°   GPU {default(gpu_temp, '-')}°"
+
+[[element]]
+type = "text"
+x = 16
+y = 206
+size = 13
 color = "#FFFFFFAA"
 text = "↓ {net_down}    ↑ {net_up}"
 
 [[element]]
 type = "text"
 x = 16
-y = 162
+y = 226
+size = 13
+color = "#FFFFFFAA"
+visible = "has_battery"
+text = "Battery {battery}% {battery_charging ? '(charging)' : battery_time}"
+
+[[element]]
+type = "text"
+x = 264
+y = 226
 size = 12
+align = "right"
 color = "#FFFFFF66"
-text = "Uptime {uptime}"
+text = "up {uptime}"

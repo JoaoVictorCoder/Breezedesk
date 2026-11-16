@@ -1,0 +1,124 @@
+# Circular gauges with colors that depend on the value, on an acrylic background.
+name = "gauges"
+x = 340
+y = 260
+width = 320
+height = 130
+update_ms = 1000
+
+[variables]
+warn = 60
+hot = 85
+green = "#30D158"
+yellow = "#FFD60A"
+red = "#FF453A"
+
+[background]
+color = "#14161E70"
+radius = 18
+border = "#FFFFFF22"
+blur = "acrylic"
+
+[[element]]
+type = "ring"
+x = 40
+y = 56
+radius = 28
+thickness = 7
+value = "cpu"
+color = "cpu > hot ? red : cpu > warn ? yellow : green"
+
+[[element]]
+type = "text"
+x = 40
+y = 46
+size = 15
+align = "center"
+text = "{default(cpu, 0)}%"
+
+[[element]]
+type = "text"
+x = 40
+y = 98
+size = 12
+align = "center"
+color = "#FFFFFF99"
+text = "CPU"
+
+[[element]]
+type = "ring"
+x = 120
+y = 56
+radius = 28
+thickness = 7
+value = "ram"
+color = "ram > hot ? red : ram > warn ? yellow : green"
+
+[[element]]
+type = "text"
+x = 120
+y = 46
+size = 15
+align = "center"
+text = "{default(ram, 0)}%"
+
+[[element]]
+type = "text"
+x = 120
+y = 98
+size = 12
+align = "center"
+color = "#FFFFFF99"
+text = "RAM"
+
+[[element]]
+type = "ring"
+x = 200
+y = 56
+radius = 28
+thickness = 7
+value = "default(gpu, 0)"
+color = "default(gpu, 0) > hot ? red : default(gpu, 0) > warn ? yellow : green"
+
+[[element]]
+type = "text"
+x = 200
+y = 46
+size = 15
+align = "center"
+text = "{default(gpu, 0)}%"
+
+[[element]]
+type = "text"
+x = 200
+y = 98
+size = 12
+align = "center"
+color = "#FFFFFF99"
+text = "GPU"
+
+[[element]]
+type = "ring"
+x = 280
+y = 56
+radius = 28
+thickness = 7
+value = "disk('C:')"
+color = "disk('C:') > hot ? red : disk('C:') > warn ? yellow : green"
+
+[[element]]
+type = "text"
+x = 280
+y = 46
+size = 15
+align = "center"
+text = "{default(disk('C:'), 0)}%"
+
+[[element]]
+type = "text"
+x = 280
+y = 98
+size = 12
+align = "center"
+color = "#FFFFFF99"
+text = "DISK"
