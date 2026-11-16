@@ -1,0 +1,87 @@
+# Monitor de sistema: CPU, RAM e rede.
+# Variáveis: {cpu} {ram} {ram_used} {ram_total} {net_down} {net_up} {uptime} {time:FORMATO}
+name = "sistema"
+x = 60
+y = 200
+width = 280
+height = 190
+update_ms = 1000
+z = "bottom"        # bottom | normal | top
+opacity = 255
+draggable = true
+click_through = false
+
+[background]
+color = "#0E0F14B0"
+radius = 16
+border = "#FFFFFF22"
+
+# --- CPU ---
+[[element]]
+type = "text"
+x = 16
+y = 12
+size = 15
+text = "CPU"
+
+[[element]]
+type = "text"
+x = 264
+y = 12
+size = 15
+align = "right"
+text = "{cpu}%"
+
+[[element]]
+type = "graph"
+x = 16
+y = 36
+w = 248
+h = 44
+source = "cpu"
+color = "#5AC8FA"
+fill = "#5AC8FA33"
+line_width = 1.5
+
+# --- RAM ---
+[[element]]
+type = "text"
+x = 16
+y = 92
+size = 15
+text = "RAM"
+
+[[element]]
+type = "text"
+x = 264
+y = 92
+size = 15
+align = "right"
+text = "{ram_used} / {ram_total} GB"
+
+[[element]]
+type = "bar"
+x = 16
+y = 118
+w = 248
+h = 8
+radius = 4
+source = "ram"
+color = "#FF9F0A"
+
+# --- Rede ---
+[[element]]
+type = "text"
+x = 16
+y = 142
+size = 14
+color = "#FFFFFFAA"
+text = "↓ {net_down}    ↑ {net_up}"
+
+[[element]]
+type = "text"
+x = 16
+y = 162
+size = 12
+color = "#FFFFFF66"
+text = "Ligado há {uptime}"

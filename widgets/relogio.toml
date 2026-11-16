@@ -1,0 +1,29 @@
+# Relógio simples. Arraste com o mouse; clique direito = menu.
+name = "relogio"
+x = 60
+y = 60
+width = 280
+height = 120
+update_ms = 1000
+
+[background]
+color = "#0E0F14B0"
+radius = 16
+border = "#FFFFFF22"
+
+[[element]]
+type = "text"
+x = 140
+y = 10
+size = 56
+align = "center"
+text = "{time:%H:%M}"
+
+[[element]]
+type = "text"
+x = 140
+y = 82
+size = 16
+align = "center"
+color = "#FFFFFFAA"
+text = "{time:%d/%m/%Y}"
