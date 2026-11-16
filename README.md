@@ -20,7 +20,8 @@ Na primeira execução, ele cria a pasta `widgets\` ao lado do `.exe` com dois e
 Você também pode indicar outra pasta: `rustmeter.exe C:\meus\widgets`.
 
 - **Arrastar:** clique e arraste o widget. A posição fica salva em `widgets\positions.state`.
-- **Clique direito:** abre um menu com *Recarregar*, *Abrir pasta* e *Sair*.
+- **Ícone na bandeja:** clique esquerdo mostra/oculta os widgets (ocultos, eles não gastam CPU); clique direito abre o menu.
+- **Menu** (bandeja ou clique direito num widget): *Mostrar/Ocultar*, *Recarregar*, *Abrir pasta*, *Iniciar com o Windows* e *Sair*.
 - **Prévia em PNG** (funciona em qualquer SO): `rustmeter --preview widgets`
 
 ## Formato de um widget (`widgets/*.toml`)
@@ -66,6 +67,7 @@ Variáveis de texto: `{cpu}` `{ram}` `{ram_used}` `{ram_total}` `{net_down}` `{n
 - `src/metrics.rs`: CPU, RAM, rede, hora e variáveis
 - `src/render.rs`: desenho (multiplataforma)
 - `src/win.rs`: janelas, arrasto, menu e timers (Win32)
+- `src/tray.rs`: ícone da bandeja e início automático
 
 ## Próximos passos sugeridos
-Recarregar sozinho quando um `.toml` mudar, ícone na bandeja, imagens (PNG), disco/GPU/bateria, comandos ao clicar e plugins.
+Recarregar sozinho quando um `.toml` mudar, imagens (PNG), disco/GPU/bateria, comandos ao clicar e plugins.

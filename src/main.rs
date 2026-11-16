@@ -5,6 +5,8 @@ mod config;
 mod metrics;
 mod render;
 #[cfg(windows)]
+mod tray;
+#[cfg(windows)]
 mod win;
 
 use std::path::PathBuf;

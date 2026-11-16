@@ -8,9 +8,11 @@
 use crate::config::{self, WidgetConfig, ZOrder};
 use crate::metrics::Metrics;
 use crate::render::{self, Fonts};
+use crate::tray::{self, Tray, WM_APP_TRAY};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::ptr::{null, null_mut};
 use tiny_skia::Pixmap;
 use windows_sys::Win32::Foundation::*;
@@ -27,6 +29,11 @@ const WM_APP_RELOAD: u32 = WM_APP + 1;
 const MENU_RELOAD: usize = 1;
 const MENU_EDIT: usize = 2;
 const MENU_EXIT: usize = 3;
+const MENU_TOGGLE: usize = 4;
+const MENU_AUTOSTART: usize = 5;
+
+/// "TaskbarCreated": o Explorer reiniciou e precisamos recolocar o ícone.
+static WM_TASKBAR_CREATED: AtomicU32 = AtomicU32::new(0);
 
 fn wide(s: &str) -> Vec<u16> {
     s.encode_utf16().chain(std::iter::once(0)).collect()
@@ -92,6 +99,8 @@ struct App {
     metrics: Metrics,
     fonts: Fonts,
     positions: HashMap<String, (i32, i32)>,
+    hidden: bool,
+    tray: Option<Tray>,
 }
 
 thread_local! {
@@ -148,6 +157,33 @@ impl App {
         for i in 0..self.widgets.len() {
             self.paint(i);
         }
+        if self.hidden {
+            for w in &self.widgets {
+                unsafe { ShowWindow(w.hwnd, SW_HIDE) };
+            }
+        }
+    }
+
+    fn set_hidden(&mut self, hidden: bool) {
+        self.hidden = hidden;
+        for w in &self.widgets {
+            unsafe {
+                if hidden {
+                    ShowWindow(w.hwnd, SW_HIDE);
+                } else {
+                    ShowWindow(w.hwnd, SW_SHOWNOACTIVATE);
+                    if w.cfg.z == ZOrder::Bottom {
+                        SetWindowPos(w.hwnd, HWND_BOTTOM, 0, 0, 0, 0,
+                            SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+                    }
+                }
+            }
+        }
+        if !hidden {
+            for i in 0..self.widgets.len() {
+                self.paint(i);
+            }
+        }
     }
 
     fn index_of(&self, hwnd: HWND) -> Option<usize> {
@@ -155,6 +191,9 @@ impl App {
     }
 
     fn paint(&mut self, i: usize) {
+        if self.hidden {
+            return; // nada de gastar CPU com widgets invisíveis
+        }
         self.metrics.refresh();
         let w = &mut self.widgets[i];
         render::render(&w.cfg, &mut w.pixmap, &self.metrics, &mut self.fonts);
@@ -237,15 +276,22 @@ fn create_widget(cfg: WidgetConfig, positions: &HashMap<String, (i32, i32)>) -> 
 
 fn show_menu(hwnd: HWND) {
     unsafe {
+        let hidden = with_app(|a| a.hidden).unwrap_or(false);
+        let autostart = tray::autostart_enabled();
         let menu = CreatePopupMenu();
-        let items = [
-            (MENU_RELOAD, "Recarregar widgets"),
-            (MENU_EDIT, "Abrir pasta dos widgets"),
-            (MENU_EXIT, "Sair"),
+        let items: [(usize, &str, u32); 7] = [
+            (MENU_TOGGLE, if hidden { "Mostrar widgets" } else { "Ocultar widgets" }, MF_STRING),
+            (0, "", MF_SEPARATOR),
+            (MENU_RELOAD, "Recarregar widgets", MF_STRING),
+            (MENU_EDIT, "Abrir pasta dos widgets", MF_STRING),
+            (MENU_AUTOSTART, "Iniciar com o Windows",
+                MF_STRING | if autostart { MF_CHECKED } else { MF_UNCHECKED }),
+            (0, "", MF_SEPARATOR),
+            (MENU_EXIT, "Sair", MF_STRING),
         ];
-        for (id, label) in items {
+        for (id, label, flags) in items {
             let l = wide(label);
-            AppendMenuW(menu, MF_STRING, id, l.as_ptr());
+            AppendMenuW(menu, flags, id, l.as_ptr());
         }
         let mut pt = POINT { x: 0, y: 0 };
         GetCursorPos(&mut pt);
@@ -260,7 +306,13 @@ fn show_menu(hwnd: HWND) {
             null(),
         ) as usize;
         DestroyMenu(menu);
+        // Recomendação da Microsoft para menus abertos a partir da bandeja.
+        PostMessageW(hwnd, WM_NULL, 0, 0);
         match cmd {
+            MENU_TOGGLE => {
+                with_app(|a| a.set_hidden(!a.hidden));
+            }
+            MENU_AUTOSTART => tray::set_autostart(!autostart),
             // Recarregar destrói esta janela, então fazemos fora da wndproc.
             MENU_RELOAD => {
                 PostThreadMessageW(GetCurrentThreadId(), WM_APP_RELOAD, 0, 0);
@@ -278,6 +330,25 @@ fn show_menu(hwnd: HWND) {
 
 unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) -> LRESULT {
     match msg {
+        // Ícone da bandeja: clique esquerdo mostra/oculta, direito abre o menu.
+        WM_APP_TRAY => {
+            match lp as u32 {
+                WM_LBUTTONUP => {
+                    with_app(|a| a.set_hidden(!a.hidden));
+                }
+                WM_RBUTTONUP | WM_CONTEXTMENU => show_menu(hwnd),
+                _ => {}
+            }
+            0
+        }
+        m if m != 0 && m == WM_TASKBAR_CREATED.load(Ordering::Relaxed) => {
+            with_app(|a| {
+                if let Some(t) = &a.tray {
+                    t.add();
+                }
+            });
+            0
+        }
         WM_TIMER if wp == TIMER_ID => {
             with_app(|a| {
                 if let Some(i) = a.index_of(hwnd) {
@@ -349,6 +420,16 @@ pub fn run(dir: PathBuf) {
         RegisterClassExW(&wc);
     }
 
+    // Janela invisível que só existe para receber os eventos da bandeja.
+    let tray_hwnd = unsafe {
+        let tb = wide("TaskbarCreated");
+        WM_TASKBAR_CREATED.store(RegisterWindowMessageW(tb.as_ptr()), Ordering::Relaxed);
+        let class = wide("RustMeterWidget");
+        let title = wide("RustMeterTray");
+        CreateWindowExW(0, class.as_ptr(), title.as_ptr(), WS_POPUP, 0, 0, 0, 0,
+            null_mut(), null_mut(), GetModuleHandleW(null()), null())
+    };
+
     let positions = load_positions(&dir);
     APP.with(|a| {
         *a.borrow_mut() = Some(App {
@@ -357,6 +438,8 @@ pub fn run(dir: PathBuf) {
             metrics: Metrics::new(),
             fonts: Fonts::default(),
             positions,
+            hidden: false,
+            tray: (!tray_hwnd.is_null()).then(|| Tray::new(tray_hwnd)),
         })
     });
     with_app(App::load);
