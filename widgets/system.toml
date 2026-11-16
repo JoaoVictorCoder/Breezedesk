@@ -1,6 +1,6 @@
-# Monitor de sistema: CPU, RAM e rede.
-# Variáveis: {cpu} {ram} {ram_used} {ram_total} {net_down} {net_up} {uptime} {time:FORMATO}
-name = "sistema"
+# System monitor: CPU, RAM and network.
+# Variables: {cpu} {ram} {ram_used} {ram_total} {net_down} {net_up} {uptime} {time:FORMAT}
+name = "system"
 x = 60
 y = 200
 width = 280
@@ -69,7 +69,7 @@ radius = 4
 source = "ram"
 color = "#FF9F0A"
 
-# --- Rede ---
+# --- Network ---
 [[element]]
 type = "text"
 x = 16
@@ -84,4 +84,4 @@ x = 16
 y = 162
 size = 12
 color = "#FFFFFF66"
-text = "Ligado há {uptime}"
+text = "Uptime {uptime}"

@@ -1,5 +1,5 @@
-# Relógio simples. Arraste com o mouse; clique direito = menu.
-name = "relogio"
+# Simple clock. Drag it with the mouse; right click = menu.
+name = "clock"
 x = 60
 y = 60
 width = 280
@@ -26,4 +26,4 @@ y = 82
 size = 16
 align = "center"
 color = "#FFFFFFAA"
-text = "{time:%d/%m/%Y}"
+text = "{time:%Y-%m-%d}"

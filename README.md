@@ -1,45 +1,46 @@
-# Pluma
+# Plume
 
-Widgets de desktop para Windows no estilo do Rainmeter, escritos em Rust e feitos para gastar pouca CPU e RAM.
+Lightweight desktop widgets for Windows, in the spirit of Rainmeter, written in Rust and built to use as little CPU and RAM as possible.
 
-![prévia](preview.png)
+![preview](preview.png)
 
-## Por que é leve
-- Usa a API do Win32 direto (`windows-sys`), sem framework de interface, sem webview e sem runtime de script.
-- Cada widget é uma janela *layered* (`UpdateLayeredWindow`) com transparência por pixel.
-- O desenho é feito em software com `tiny-skia`, e o texto com `fontdue` usando um cache de glifos.
-- As métricas do sistema são coletadas no máximo uma vez por segundo e compartilhadas entre todos os widgets.
-- O processo só acorda no `update_ms` de cada widget. Fora isso, fica parado em `GetMessage`.
+## Why it is light
+- Talks to the Win32 API directly (`windows-sys`): no UI framework, no webview, no script runtime.
+- Each widget is a *layered* window (`UpdateLayeredWindow`) with per-pixel transparency.
+- Drawing is done in software with `tiny-skia`, and text with `fontdue` plus a glyph cache.
+- System metrics are sampled at most once per second and shared by every widget.
+- The process only wakes up on each widget's `update_ms`. The rest of the time it sleeps in `GetMessage`.
+- Hidden widgets are not redrawn at all.
 
-## Compilar e rodar (no Windows)
+## Build and run (on Windows)
 ```
 cargo build --release
-target\release\pluma.exe
+target\release\plume.exe
 ```
-Na primeira execução, ele cria a pasta `widgets\` ao lado do `.exe` com dois exemplos.
-Você também pode indicar outra pasta: `pluma.exe C:\meus\widgets`.
+On first run it creates a `widgets\` folder next to the `.exe` with two examples.
+You can also point it at another folder: `plume.exe C:\my\widgets`.
 
-- **Arrastar:** clique e arraste o widget. A posição fica salva em `widgets\positions.state`.
-- **Ícone na bandeja:** clique esquerdo mostra/oculta os widgets (ocultos, eles não gastam CPU); clique direito abre o menu.
-- **Menu** (bandeja ou clique direito num widget): *Mostrar/Ocultar*, *Recarregar*, *Abrir pasta*, *Iniciar com o Windows* e *Sair*.
-- **Prévia em PNG** (funciona em qualquer SO): `pluma --preview widgets`
+- **Drag:** click and drag a widget. Its position is saved in `widgets\positions.state`.
+- **Tray icon:** left click shows/hides the widgets; right click opens the menu.
+- **Menu** (tray icon or right click on a widget): *Show/Hide widgets*, *Reload widgets*, *Open widgets folder*, *Start with Windows* and *Exit*.
+- **PNG preview** (works on any OS): `plume --preview widgets`
 
-## Formato de um widget (`widgets/*.toml`)
+## Widget format (`widgets/*.toml`)
 ```toml
-name = "meu-widget"     # único
+name = "my-widget"      # unique
 x = 100
 y = 100
 width = 250
 height = 100
 update_ms = 1000
-z = "bottom"            # bottom (no desktop) | normal | top (sempre visível)
+z = "bottom"            # bottom (on the desktop) | normal | top (always on top)
 opacity = 255
 draggable = true
 click_through = false
 font = "C:/Windows/Fonts/segoeui.ttf"
 
 [background]
-color = "#101018C0"     # #RRGGBB ou #RRGGBBAA
+color = "#101018C0"     # #RRGGBB or #RRGGBBAA
 radius = 12
 border = "#FFFFFF30"
 
@@ -50,24 +51,24 @@ y = 10
 size = 20
 align = "left"
 color = "#FFFFFF"
-text = "CPU {cpu}% — {time:%H:%M:%S}"
+text = "CPU {cpu}% - {time:%H:%M:%S}"
 ```
 
-| Elemento | Campos |
+| Element | Fields |
 |---|---|
 | `text`  | x, y, text, size, color, align (left/center/right), font |
 | `rect`  | x, y, w, h, color, radius |
 | `bar`   | x, y, w, h, source (`cpu`/`ram`), color, background, radius |
 | `graph` | x, y, w, h, source, color, fill, line_width |
 
-Variáveis de texto: `{cpu}` `{ram}` `{ram_used}` `{ram_total}` `{net_down}` `{net_up}` `{uptime}` `{time:FORMATO}` (formato do [chrono](https://docs.rs/chrono/latest/chrono/format/strftime/)).
+Text variables: `{cpu}` `{ram}` `{ram_used}` `{ram_total}` `{net_down}` `{net_up}` `{uptime}` `{time:FORMAT}` ([chrono format](https://docs.rs/chrono/latest/chrono/format/strftime/)).
 
-## Estrutura
-- `src/config.rs`: formato TOML
-- `src/metrics.rs`: CPU, RAM, rede, hora e variáveis
-- `src/render.rs`: desenho (multiplataforma)
-- `src/win.rs`: janelas, arrasto, menu e timers (Win32)
-- `src/tray.rs`: ícone da bandeja e início automático
+## Project layout
+- `src/config.rs`: TOML format
+- `src/metrics.rs`: CPU, RAM, network, time and variables
+- `src/render.rs`: drawing (cross-platform)
+- `src/win.rs`: windows, dragging, menu and timers (Win32)
+- `src/tray.rs`: tray icon and start with Windows
 
-## Próximos passos sugeridos
-Recarregar sozinho quando um `.toml` mudar, imagens (PNG), disco/GPU/bateria, comandos ao clicar e plugins.
+## Roadmap
+Auto-reload when a `.toml` changes, images (PNG), disk/GPU/battery, click actions and plugins.

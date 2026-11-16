@@ -1,9 +1,9 @@
-//! Formato dos arquivos de widget (TOML).
+//! Widget file format (TOML).
 
 use serde::{Deserialize, Deserializer};
 use std::path::Path;
 
-/// Cor RGBA lida de strings "#RRGGBB" ou "#RRGGBBAA".
+/// RGBA color parsed from "#RRGGBB" or "#RRGGBBAA" strings.
 #[derive(Clone, Copy, Debug)]
 pub struct Rgba {
     pub r: u8,
@@ -33,14 +33,14 @@ impl Rgba {
 impl<'de> Deserialize<'de> for Rgba {
     fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         let s = String::deserialize(d)?;
-        Rgba::parse(&s).ok_or_else(|| serde::de::Error::custom(format!("cor inválida: {s:?}")))
+        Rgba::parse(&s).ok_or_else(|| serde::de::Error::custom(format!("invalid color: {s:?}")))
     }
 }
 
 #[derive(Deserialize, Clone, Copy, Debug, Default, PartialEq)]
 #[serde(rename_all = "lowercase")]
 pub enum ZOrder {
-    /// Fica "colado" no desktop, atrás das outras janelas.
+    /// Stays "glued" to the desktop, behind other windows.
     #[default]
     Bottom,
     Normal,
@@ -87,7 +87,7 @@ pub enum Element {
         color: Rgba,
         #[serde(default)]
         align: Align,
-        /// Fonte específica deste texto (senão usa a do widget).
+        /// Font for this text only (otherwise the widget's font is used).
         font: Option<String>,
     },
     Rect {
@@ -120,7 +120,7 @@ pub enum Element {
         source: Source,
         #[serde(default = "white")]
         color: Rgba,
-        /// Preenchimento abaixo da linha (opcional).
+        /// Fill below the line (optional).
         fill: Option<Rgba>,
         #[serde(default = "one")]
         line_width: f32,
@@ -129,7 +129,7 @@ pub enum Element {
 
 #[derive(Deserialize, Clone, Debug)]
 pub struct WidgetConfig {
-    /// Nome único — usado para lembrar a posição.
+    /// Unique name, used to remember the position.
     pub name: String,
     #[serde(default)]
     pub x: i32,
@@ -145,7 +145,7 @@ pub struct WidgetConfig {
     pub click_through: bool,
     #[serde(default)]
     pub z: ZOrder,
-    /// Opacidade global 0–255.
+    /// Overall opacity, 0-255.
     #[serde(default = "full")]
     pub opacity: u8,
     #[serde(default = "default_font")]
@@ -165,7 +165,7 @@ fn one() -> f32 { 1.0 }
 fn yes() -> bool { true }
 fn full() -> u8 { 255 }
 
-/// Carrega todos os `*.toml` de uma pasta. Retorna widgets válidos + erros legíveis.
+/// Loads every `*.toml` in a folder. Returns valid widgets + readable errors.
 pub fn load_dir(dir: &Path) -> (Vec<WidgetConfig>, Vec<String>) {
     let mut widgets = Vec::new();
     let mut errors = Vec::new();
@@ -185,10 +185,10 @@ pub fn load_dir(dir: &Path) -> (Vec<WidgetConfig>, Vec<String>) {
     (widgets, errors)
 }
 
-/// Exemplos gravados na primeira execução.
+/// Examples written on first run.
 pub const EXAMPLES: &[(&str, &str)] = &[
-    ("relogio.toml", include_str!("../widgets/relogio.toml")),
-    ("sistema.toml", include_str!("../widgets/sistema.toml")),
+    ("clock.toml", include_str!("../widgets/clock.toml")),
+    ("system.toml", include_str!("../widgets/system.toml")),
 ];
 
 #[cfg(test)]

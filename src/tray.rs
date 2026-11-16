@@ -1,4 +1,4 @@
-//! Ícone na bandeja do sistema (área de notificação) e "Iniciar com o Windows".
+//! System tray (notification area) icon and "Start with Windows".
 
 use std::ptr::{null, null_mut};
 use tiny_skia::{Color, FillRule, Paint, PathBuilder, Pixmap, Rect, Transform};
@@ -8,7 +8,7 @@ use windows_sys::Win32::System::Registry::*;
 use windows_sys::Win32::UI::Shell::*;
 use windows_sys::Win32::UI::WindowsAndMessaging::*;
 
-/// Mensagem que o Windows manda à nossa janela quando o ícone é clicado.
+/// Message Windows sends to our window when the icon is clicked.
 pub const WM_APP_TRAY: u32 = WM_APP + 2;
 const TRAY_ID: u32 = 1;
 
@@ -32,13 +32,13 @@ impl Tray {
         nid
     }
 
-    /// Adiciona o ícone. Chamado de novo se o Explorer reiniciar.
+    /// Adds the icon. Called again if Explorer restarts.
     pub fn add(&self) {
         let mut nid = self.data();
         nid.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
         nid.uCallbackMessage = WM_APP_TRAY;
         nid.hIcon = self.icon;
-        for (d, s) in nid.szTip.iter_mut().zip("Pluma".encode_utf16()) {
+        for (d, s) in nid.szTip.iter_mut().zip("Plume".encode_utf16()) {
             *d = s;
         }
         unsafe { Shell_NotifyIconW(NIM_ADD, &nid) };
@@ -55,13 +55,13 @@ impl Drop for Tray {
     }
 }
 
-/// Desenha o ícone em tempo de execução (sem arquivo .ico): um mini gráfico de barras.
+/// Draws the icon at runtime (no .ico file): a tiny bar chart.
 fn make_icon() -> HICON {
     let s = unsafe { GetSystemMetrics(SM_CXSMICON) }.clamp(16, 64) as u32;
     let Some(mut pm) = Pixmap::new(s, s) else {
         return unsafe { LoadIconW(null_mut(), IDI_APPLICATION) };
     };
-    let f = s as f32 / 16.0; // escala a partir de um desenho em 16x16
+    let f = s as f32 / 16.0; // scale from a 16x16 design
     let mut paint = Paint { anti_alias: true, ..Paint::default() };
 
     paint.set_color(Color::from_rgba8(30, 34, 48, 255));
@@ -89,7 +89,7 @@ fn make_icon() -> HICON {
         if color.is_null() || bits.is_null() {
             return LoadIconW(null_mut(), IDI_APPLICATION);
         }
-        // Ícones usam alfa "direto" (não pré-multiplicado), em BGRA.
+        // Icons use straight (non-premultiplied) alpha, in BGRA.
         let dst = std::slice::from_raw_parts_mut(bits as *mut u8, (s * s * 4) as usize);
         for (d, p) in dst.chunks_exact_mut(4).zip(pm.pixels()) {
             let c = p.demultiply();
@@ -125,10 +125,10 @@ fn rounded(x: f32, y: f32, w: f32, h: f32, r: f32) -> Option<tiny_skia::Path> {
     pb.finish()
 }
 
-// ---------- Iniciar com o Windows (HKCU\...\Run) ----------
+// ---------- Start with Windows (HKCU\...\Run) ----------
 
 const RUN_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Run";
-const RUN_VALUE: &str = "Pluma";
+const RUN_VALUE: &str = "Plume";
 
 fn wide(s: &str) -> Vec<u16> {
     s.encode_utf16().chain(std::iter::once(0)).collect()

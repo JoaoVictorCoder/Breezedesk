@@ -1,4 +1,4 @@
-//! Coleta de dados do sistema (CPU, RAM, rede, hora) e substituição de variáveis.
+//! System data collection (CPU, RAM, network, time) and variable substitution.
 
 use crate::config::Source;
 use std::collections::VecDeque;
@@ -42,7 +42,7 @@ impl Metrics {
         m
     }
 
-    /// Atualiza no máximo ~1x por segundo, mesmo que vários widgets peçam.
+    /// Refreshes at most ~once per second, even if several widgets ask.
     pub fn refresh(&mut self) {
         let elapsed = self.last.elapsed();
         if elapsed < MIN_INTERVAL {
@@ -89,7 +89,7 @@ impl Metrics {
         }
     }
 
-    /// Troca `{variavel}` / `{variavel:arg}` pelos valores atuais.
+    /// Replaces `{variable}` / `{variable:arg}` with the current values.
     pub fn expand(&self, template: &str) -> String {
         let mut out = String::with_capacity(template.len() + 16);
         let mut rest = template;
@@ -155,10 +155,10 @@ mod tests {
     #[test]
     fn expand_vars() {
         let m = Metrics::new();
-        let s = m.expand("CPU {cpu}% {desconhecida} {time:%Y}");
+        let s = m.expand("CPU {cpu}% {unknown} {time:%Y}");
         assert!(s.starts_with("CPU "));
-        assert!(s.contains("{desconhecida}"));
+        assert!(s.contains("{unknown}"));
         assert!(!s.contains("{time"));
-        assert_eq!(m.expand("sem chave {"), "sem chave {");
+        assert_eq!(m.expand("no brace {"), "no brace {");
     }
 }

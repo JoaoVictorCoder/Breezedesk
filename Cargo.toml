@@ -1,8 +1,8 @@
 [package]
-name = "pluma"
-version = "0.2.0"
+name = "plume"
+version = "0.3.0"
 edition = "2021"
-description = "Pluma: widgets de desktop leves para Windows (estilo Rainmeter), em Rust"
+description = "Lightweight desktop widgets for Windows (Rainmeter-style), written in Rust"
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }

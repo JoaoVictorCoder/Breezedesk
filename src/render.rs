@@ -1,4 +1,4 @@
-//! Desenho de um widget num Pixmap RGBA (independente de plataforma).
+//! Draws a widget into an RGBA Pixmap (platform independent).
 
 use crate::config::{Align, Element, Rgba, WidgetConfig};
 use crate::metrics::Metrics;
@@ -6,7 +6,7 @@ use fontdue::{Font, FontSettings, Metrics as GlyphMetrics};
 use std::collections::HashMap;
 use tiny_skia::{FillRule, Paint, Path, PathBuilder, Pixmap, Rect, Stroke, Transform};
 
-/// Fonte carregada + cache de glifos já rasterizados.
+/// Loaded font + cache of already rasterized glyphs.
 pub struct FontEntry {
     font: Font,
     glyphs: HashMap<(char, u32), (GlyphMetrics, Vec<u8>)>,
@@ -106,7 +106,7 @@ fn draw_graph(
     if hist.len() < 2 {
         return;
     }
-    const STEP: f32 = 3.0; // pixels entre amostras
+    const STEP: f32 = 3.0; // pixels between samples
     let n = ((w / STEP) as usize + 1).min(hist.len());
     let pts: Vec<(f32, f32)> = hist
         .iter()
@@ -165,7 +165,7 @@ fn draw_text(pm: &mut Pixmap, f: &mut FontEntry, text: &str, x: f32, y: f32, px:
     }
 }
 
-/// Mistura um bitmap de cobertura (glifo) no pixmap, em alfa pré-multiplicado.
+/// Blends a coverage bitmap (glyph) into the pixmap, with premultiplied alpha.
 fn blit_coverage(pm: &mut Pixmap, gx: i32, gy: i32, w: usize, h: usize, cov: &[u8], c: Rgba) {
     let (pw, ph) = (pm.width() as i32, pm.height() as i32);
     let data = pm.data_mut();
@@ -217,7 +217,7 @@ fn rounded_rect(x: f32, y: f32, w: f32, h: f32, r: f32) -> Option<Path> {
     if r == 0.0 {
         return Some(PathBuilder::from_rect(Rect::from_xywh(x, y, w, h)?));
     }
-    let k = 0.552_284_8 * r; // aproximação de arco por Bézier
+    let k = 0.552_284_8 * r; // Bezier approximation of an arc
     let (r2, b) = (x + w, y + h);
     let mut pb = PathBuilder::new();
     pb.move_to(x + r, y);

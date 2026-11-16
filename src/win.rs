@@ -1,9 +1,9 @@
-//! Parte específica do Windows: uma janela "layered" por widget.
+//! Windows-specific part: one "layered" window per widget.
 //!
-//! Cada widget é uma janela WS_POPUP + WS_EX_LAYERED sem borda. O conteúdo é
-//! desenhado num buffer em memória e enviado com `UpdateLayeredWindow`, que
-//! suporta transparência por pixel — o mesmo truque que o Rainmeter usa, mas sem
-//! Lua, sem plugins carregados à toa e sem GDI+.
+//! Each widget is a borderless WS_POPUP + WS_EX_LAYERED window. Its content is
+//! drawn into an in-memory buffer and pushed with `UpdateLayeredWindow`, which
+//! supports per-pixel transparency: the same trick Rainmeter uses, but without
+//! Lua, without plugins loaded for nothing and without GDI+.
 
 use crate::config::{self, WidgetConfig, ZOrder};
 use crate::metrics::Metrics;
@@ -32,14 +32,14 @@ const MENU_EXIT: usize = 3;
 const MENU_TOGGLE: usize = 4;
 const MENU_AUTOSTART: usize = 5;
 
-/// "TaskbarCreated": o Explorer reiniciou e precisamos recolocar o ícone.
+/// "TaskbarCreated": Explorer restarted and the tray icon must be re-added.
 static WM_TASKBAR_CREATED: AtomicU32 = AtomicU32::new(0);
 
 fn wide(s: &str) -> Vec<u16> {
     s.encode_utf16().chain(std::iter::once(0)).collect()
 }
 
-/// Buffer de memória (DIB) onde copiamos os pixels antes de mandar à janela.
+/// In-memory buffer (DIB) where pixels are copied before being sent to the window.
 struct Surface {
     dc: HDC,
     bmp: HBITMAP,
@@ -107,14 +107,14 @@ thread_local! {
     static APP: RefCell<Option<App>> = const { RefCell::new(None) };
 }
 
-/// Acessa o estado global sem pânico se já estiver emprestado
-/// (algumas chamadas Win32 reentram na wndproc).
+/// Accesses the global state without panicking if it is already borrowed
+/// (some Win32 calls re-enter the wndproc).
 fn with_app<R>(f: impl FnOnce(&mut App) -> R) -> Option<R> {
     APP.with(|a| a.try_borrow_mut().ok().and_then(|mut a| a.as_mut().map(f)))
 }
 
 fn positions_path(dir: &Path) -> PathBuf {
-    dir.join("positions.state") // não é .toml para não ser lido como widget
+    dir.join("positions.state") // not .toml, so it is not loaded as a widget
 }
 
 fn load_positions(dir: &Path) -> HashMap<String, (i32, i32)> {
@@ -126,7 +126,7 @@ fn load_positions(dir: &Path) -> HashMap<String, (i32, i32)> {
 }
 
 fn save_positions(dir: &Path, pos: &HashMap<String, (i32, i32)>) {
-    let mut out = String::from("# Gerado automaticamente ao arrastar widgets.\n");
+    let mut out = String::from("# Generated automatically when widgets are dragged.\n");
     let mut keys: Vec<_> = pos.keys().collect();
     keys.sort();
     for k in keys {
@@ -137,21 +137,21 @@ fn save_positions(dir: &Path, pos: &HashMap<String, (i32, i32)>) {
 }
 
 fn message_box(text: &str) {
-    let (t, c) = (wide(text), wide("Pluma"));
+    let (t, c) = (wide(text), wide("Plume"));
     unsafe { MessageBoxW(null_mut(), t.as_ptr(), c.as_ptr(), MB_ICONWARNING | MB_OK) };
 }
 
 impl App {
     fn load(&mut self) {
-        self.widgets.clear(); // Drop destrói as janelas antigas
+        self.widgets.clear(); // Drop destroys the old windows
         let (cfgs, errors) = config::load_dir(&self.dir);
         if !errors.is_empty() {
-            message_box(&format!("Erros nos arquivos de widget:\n\n{}", errors.join("\n\n")));
+            message_box(&format!("Errors in widget files:\n\n{}", errors.join("\n\n")));
         }
         for cfg in cfgs {
             match create_widget(cfg, &self.positions) {
                 Some(w) => self.widgets.push(w),
-                None => message_box("Falha ao criar a janela de um widget."),
+                None => message_box("Failed to create a widget window."),
             }
         }
         for i in 0..self.widgets.len() {
@@ -192,13 +192,13 @@ impl App {
 
     fn paint(&mut self, i: usize) {
         if self.hidden {
-            return; // nada de gastar CPU com widgets invisíveis
+            return; // no CPU spent on invisible widgets
         }
         self.metrics.refresh();
         let w = &mut self.widgets[i];
         render::render(&w.cfg, &mut w.pixmap, &self.metrics, &mut self.fonts);
 
-        // tiny-skia usa RGBA pré-multiplicado; o Windows quer BGRA pré-multiplicado.
+        // tiny-skia uses premultiplied RGBA; Windows wants premultiplied BGRA.
         let src = w.pixmap.data();
         let dst = unsafe { std::slice::from_raw_parts_mut(w.surface.bits, src.len()) };
         for (d, s) in dst.chunks_exact_mut(4).zip(src.chunks_exact(4)) {
@@ -220,7 +220,7 @@ impl App {
             UpdateLayeredWindow(
                 w.hwnd,
                 null_mut(),
-                null(), // mantém a posição atual
+                null(), // keep the current position
                 &size,
                 w.surface.dc,
                 &origin,
@@ -234,14 +234,14 @@ impl App {
 
 fn create_widget(cfg: WidgetConfig, positions: &HashMap<String, (i32, i32)>) -> Option<Widget> {
     let (x, y) = positions.get(&cfg.name).copied().unwrap_or((cfg.x, cfg.y));
-    let mut ex = WS_EX_LAYERED | WS_EX_TOOLWINDOW; // TOOLWINDOW = sem ícone na barra
+    let mut ex = WS_EX_LAYERED | WS_EX_TOOLWINDOW; // TOOLWINDOW = no taskbar button
     if cfg.z == ZOrder::Top {
         ex |= WS_EX_TOPMOST;
     }
     if cfg.click_through {
         ex |= WS_EX_TRANSPARENT;
     }
-    let class = wide("PlumaWidget");
+    let class = wide("PlumeWidget");
     let title = wide(&cfg.name);
     let hwnd = unsafe {
         CreateWindowExW(
@@ -280,14 +280,14 @@ fn show_menu(hwnd: HWND) {
         let autostart = tray::autostart_enabled();
         let menu = CreatePopupMenu();
         let items: [(usize, &str, u32); 7] = [
-            (MENU_TOGGLE, if hidden { "Mostrar widgets" } else { "Ocultar widgets" }, MF_STRING),
+            (MENU_TOGGLE, if hidden { "Show widgets" } else { "Hide widgets" }, MF_STRING),
             (0, "", MF_SEPARATOR),
-            (MENU_RELOAD, "Recarregar widgets", MF_STRING),
-            (MENU_EDIT, "Abrir pasta dos widgets", MF_STRING),
-            (MENU_AUTOSTART, "Iniciar com o Windows",
+            (MENU_RELOAD, "Reload widgets", MF_STRING),
+            (MENU_EDIT, "Open widgets folder", MF_STRING),
+            (MENU_AUTOSTART, "Start with Windows",
                 MF_STRING | if autostart { MF_CHECKED } else { MF_UNCHECKED }),
             (0, "", MF_SEPARATOR),
-            (MENU_EXIT, "Sair", MF_STRING),
+            (MENU_EXIT, "Exit", MF_STRING),
         ];
         for (id, label, flags) in items {
             let l = wide(label);
@@ -306,14 +306,14 @@ fn show_menu(hwnd: HWND) {
             null(),
         ) as usize;
         DestroyMenu(menu);
-        // Recomendação da Microsoft para menus abertos a partir da bandeja.
+        // Microsoft-recommended workaround for menus opened from the tray.
         PostMessageW(hwnd, WM_NULL, 0, 0);
         match cmd {
             MENU_TOGGLE => {
                 with_app(|a| a.set_hidden(!a.hidden));
             }
             MENU_AUTOSTART => tray::set_autostart(!autostart),
-            // Recarregar destrói esta janela, então fazemos fora da wndproc.
+            // Reloading destroys this window, so it is done outside the wndproc.
             MENU_RELOAD => {
                 PostThreadMessageW(GetCurrentThreadId(), WM_APP_RELOAD, 0, 0);
             }
@@ -330,7 +330,7 @@ fn show_menu(hwnd: HWND) {
 
 unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) -> LRESULT {
     match msg {
-        // Ícone da bandeja: clique esquerdo mostra/oculta, direito abre o menu.
+        // Tray icon: left click shows/hides, right click opens the menu.
         WM_APP_TRAY => {
             match lp as u32 {
                 WM_LBUTTONUP => {
@@ -357,7 +357,7 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) 
             });
             0
         }
-        // Clicar em qualquer ponto = "barra de título" → o Windows cuida do arrasto.
+        // Clicking anywhere = "title bar", so Windows handles the dragging.
         WM_NCHITTEST => {
             let drag = with_app(|a| a.index_of(hwnd).map(|i| a.widgets[i].cfg.draggable));
             if drag.flatten().unwrap_or(false) {
@@ -370,7 +370,7 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) 
             show_menu(hwnd);
             0
         }
-        // Widgets "bottom" nunca sobem na pilha de janelas.
+        // "bottom" widgets never rise in the window stack.
         WM_WINDOWPOSCHANGING => {
             let bottom = with_app(|a| {
                 a.index_of(hwnd).map(|i| a.widgets[i].cfg.z == ZOrder::Bottom)
@@ -381,7 +381,7 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) 
             }
             DefWindowProcW(hwnd, msg, wp, lp)
         }
-        // Fim do arrasto: salva a posição.
+        // Drag finished: save the position.
         WM_EXITSIZEMOVE => {
             let mut r = RECT { left: 0, top: 0, right: 0, bottom: 0 };
             GetWindowRect(hwnd, &mut r);
@@ -402,7 +402,7 @@ pub fn run(dir: PathBuf) {
     unsafe {
         SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
 
-        let class = wide("PlumaWidget");
+        let class = wide("PlumeWidget");
         let wc = WNDCLASSEXW {
             cbSize: std::mem::size_of::<WNDCLASSEXW>() as u32,
             style: 0,
@@ -420,12 +420,12 @@ pub fn run(dir: PathBuf) {
         RegisterClassExW(&wc);
     }
 
-    // Janela invisível que só existe para receber os eventos da bandeja.
+    // Invisible window that only exists to receive tray events.
     let tray_hwnd = unsafe {
         let tb = wide("TaskbarCreated");
         WM_TASKBAR_CREATED.store(RegisterWindowMessageW(tb.as_ptr()), Ordering::Relaxed);
-        let class = wide("PlumaWidget");
-        let title = wide("PlumaTray");
+        let class = wide("PlumeWidget");
+        let title = wide("PlumeTray");
         CreateWindowExW(0, class.as_ptr(), title.as_ptr(), WS_POPUP, 0, 0, 0, 0,
             null_mut(), null_mut(), GetModuleHandleW(null()), null())
     };
@@ -456,6 +456,6 @@ pub fn run(dir: PathBuf) {
         }
     }
 
-    // Destrói as janelas antes de sair.
+    // Destroy the windows before exiting.
     APP.with(|a| a.borrow_mut().take());
 }
