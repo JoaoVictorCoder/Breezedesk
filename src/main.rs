@@ -31,7 +31,7 @@ fn widgets_dir() -> PathBuf {
     dir
 }
 
-/// `rustmeter --preview [pasta]` renderiza cada widget em PNG (funciona em qualquer SO).
+/// `pluma --preview [pasta]` renderiza cada widget em PNG (funciona em qualquer SO).
 fn preview(dir: &std::path::Path) {
     let (widgets, errors) = config::load_dir(dir);
     for e in errors {

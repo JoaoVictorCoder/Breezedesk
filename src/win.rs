@@ -137,7 +137,7 @@ fn save_positions(dir: &Path, pos: &HashMap<String, (i32, i32)>) {
 }
 
 fn message_box(text: &str) {
-    let (t, c) = (wide(text), wide("RustMeter"));
+    let (t, c) = (wide(text), wide("Pluma"));
     unsafe { MessageBoxW(null_mut(), t.as_ptr(), c.as_ptr(), MB_ICONWARNING | MB_OK) };
 }
 
@@ -241,7 +241,7 @@ fn create_widget(cfg: WidgetConfig, positions: &HashMap<String, (i32, i32)>) -> 
     if cfg.click_through {
         ex |= WS_EX_TRANSPARENT;
     }
-    let class = wide("RustMeterWidget");
+    let class = wide("PlumaWidget");
     let title = wide(&cfg.name);
     let hwnd = unsafe {
         CreateWindowExW(
@@ -402,7 +402,7 @@ pub fn run(dir: PathBuf) {
     unsafe {
         SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
 
-        let class = wide("RustMeterWidget");
+        let class = wide("PlumaWidget");
         let wc = WNDCLASSEXW {
             cbSize: std::mem::size_of::<WNDCLASSEXW>() as u32,
             style: 0,
@@ -424,8 +424,8 @@ pub fn run(dir: PathBuf) {
     let tray_hwnd = unsafe {
         let tb = wide("TaskbarCreated");
         WM_TASKBAR_CREATED.store(RegisterWindowMessageW(tb.as_ptr()), Ordering::Relaxed);
-        let class = wide("RustMeterWidget");
-        let title = wide("RustMeterTray");
+        let class = wide("PlumaWidget");
+        let title = wide("PlumaTray");
         CreateWindowExW(0, class.as_ptr(), title.as_ptr(), WS_POPUP, 0, 0, 0, 0,
             null_mut(), null_mut(), GetModuleHandleW(null()), null())
     };

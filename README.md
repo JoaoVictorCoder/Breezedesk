@@ -1,4 +1,4 @@
-# RustMeter
+# Pluma
 
 Widgets de desktop para Windows no estilo do Rainmeter, escritos em Rust e feitos para gastar pouca CPU e RAM.
 
@@ -14,15 +14,15 @@ Widgets de desktop para Windows no estilo do Rainmeter, escritos em Rust e feito
 ## Compilar e rodar (no Windows)
 ```
 cargo build --release
-target\release\rustmeter.exe
+target\release\pluma.exe
 ```
 Na primeira execução, ele cria a pasta `widgets\` ao lado do `.exe` com dois exemplos.
-Você também pode indicar outra pasta: `rustmeter.exe C:\meus\widgets`.
+Você também pode indicar outra pasta: `pluma.exe C:\meus\widgets`.
 
 - **Arrastar:** clique e arraste o widget. A posição fica salva em `widgets\positions.state`.
 - **Ícone na bandeja:** clique esquerdo mostra/oculta os widgets (ocultos, eles não gastam CPU); clique direito abre o menu.
 - **Menu** (bandeja ou clique direito num widget): *Mostrar/Ocultar*, *Recarregar*, *Abrir pasta*, *Iniciar com o Windows* e *Sair*.
-- **Prévia em PNG** (funciona em qualquer SO): `rustmeter --preview widgets`
+- **Prévia em PNG** (funciona em qualquer SO): `pluma --preview widgets`
 
 ## Formato de um widget (`widgets/*.toml`)
 ```toml

@@ -38,7 +38,7 @@ impl Tray {
         nid.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
         nid.uCallbackMessage = WM_APP_TRAY;
         nid.hIcon = self.icon;
-        for (d, s) in nid.szTip.iter_mut().zip("RustMeter".encode_utf16()) {
+        for (d, s) in nid.szTip.iter_mut().zip("Pluma".encode_utf16()) {
             *d = s;
         }
         unsafe { Shell_NotifyIconW(NIM_ADD, &nid) };
@@ -128,7 +128,7 @@ fn rounded(x: f32, y: f32, w: f32, h: f32, r: f32) -> Option<tiny_skia::Path> {
 // ---------- Iniciar com o Windows (HKCU\...\Run) ----------
 
 const RUN_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Run";
-const RUN_VALUE: &str = "RustMeter";
+const RUN_VALUE: &str = "Pluma";
 
 fn wide(s: &str) -> Vec<u16> {
     s.encode_utf16().chain(std::iter::once(0)).collect()
