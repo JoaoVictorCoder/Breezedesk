@@ -200,3 +200,6 @@ function clicked() plume.set("count", (plume.get("count") or 0) + 1) end
 | `src/script.rs` | LuaJIT |
 | `src/actions.rs` | Click actions |
 | `src/win.rs`, `src/tray.rs` | Windows, mouse, timers, auto-reload, blur, tray |
+
+## License
+[MIT](LICENSE)
