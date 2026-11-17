@@ -187,3 +187,56 @@ pub fn set_autostart(on: bool) {
         RegCloseKey(h);
     }
 }
+
+// ---------- Settings (HKCU\Software\Plume) ----------
+
+const SETTINGS_KEY: &str = r"Software\Plume";
+
+fn read_dword(name: &str) -> Option<u32> {
+    let (key, name) = (wide(SETTINGS_KEY), wide(name));
+    let mut value = 0u32;
+    let mut size = 4u32;
+    let ok = unsafe {
+        RegGetValueW(
+            HKEY_CURRENT_USER,
+            key.as_ptr(),
+            name.as_ptr(),
+            RRF_RT_REG_DWORD,
+            null_mut(),
+            &mut value as *mut u32 as *mut _,
+            &mut size,
+        )
+    };
+    (ok == ERROR_SUCCESS).then_some(value)
+}
+
+fn write_dword(name: &str, value: u32) {
+    let (key, name) = (wide(SETTINGS_KEY), wide(name));
+    let mut h: HKEY = null_mut();
+    unsafe {
+        let ok = RegCreateKeyExW(
+            HKEY_CURRENT_USER,
+            key.as_ptr(),
+            0,
+            null(),
+            REG_OPTION_NON_VOLATILE,
+            KEY_SET_VALUE,
+            null(),
+            &mut h,
+            null_mut(),
+        );
+        if ok == ERROR_SUCCESS {
+            RegSetValueExW(h, name.as_ptr(), 0, REG_DWORD, &value as *const u32 as *const u8, 4);
+            RegCloseKey(h);
+        }
+    }
+}
+
+/// Automatic updates are on unless the user turned them off.
+pub fn auto_update_enabled() -> bool {
+    read_dword("AutoUpdate").unwrap_or(1) != 0
+}
+
+pub fn set_auto_update(on: bool) {
+    write_dword("AutoUpdate", on as u32);
+}

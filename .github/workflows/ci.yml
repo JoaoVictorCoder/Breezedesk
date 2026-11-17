@@ -1,0 +1,40 @@
+name: CI
+
+# Builds and tests the dev branch and pull requests. Nothing is released:
+# the files are attached to the run as an artifact for testing.
+on:
+  push:
+    branches: [dev]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      PLUME_DEV: "1" # dev builds never update themselves
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-gnu
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install MinGW and NSIS
+        run: sudo apt-get update && sudo apt-get install -y gcc-mingw-w64-x86-64 nsis zip
+
+      - name: Test
+        run: cargo test
+
+      - name: Build
+        run: cargo build --release --target x86_64-pc-windows-gnu
+
+      - name: Package
+        run: scripts/package.sh "$(grep -m1 '^version' Cargo.toml | cut -d'"' -f2)"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: plume-dev-${{ github.sha }}
+          path: dist/

@@ -1,6 +1,6 @@
 [package]
 name = "plume"
-version = "0.4.1"
+version = "0.5.0"
 edition = "2021"
 description = "Lightweight desktop widgets for Windows (Rainmeter-style), written in Rust"
 license = "MIT"
@@ -15,6 +15,7 @@ chrono = { version = "0.4", default-features = false, features = ["clock", "std"
 sysinfo = { version = "0.33", default-features = false, features = ["system", "network", "disk", "component"] }
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "bmp", "ico"] }
 roxmltree = "0.20"
+sha2 = "0.10"
 mlua = { version = "0.10", features = ["luajit", "vendored", "serialize"] }
 
 [target.'cfg(windows)'.dependencies]
@@ -27,6 +28,7 @@ windows-sys = { version = "0.59", features = [
     "Win32_UI_Shell",
     "Win32_UI_Input_KeyboardAndMouse",
     "Win32_System_Registry",
+    "Win32_Security",
     "Win32_System_LibraryLoader",
     "Win32_System_Threading",
     "Win32_System_Power",

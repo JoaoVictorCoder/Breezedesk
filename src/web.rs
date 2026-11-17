@@ -171,8 +171,13 @@ fn strip_html(s: &str) -> String {
     out.replace("&amp;", "&").replace("&quot;", "\"").replace("&#39;", "'").replace("&lt;", "<").replace("&gt;", ">")
 }
 
+/// Downloads a URL as text.
+pub fn get(url: &str) -> Result<String, String> {
+    get_bytes(url).map(|b| String::from_utf8_lossy(&b).into_owned())
+}
+
 #[cfg(not(windows))]
-fn get(url: &str) -> Result<String, String> {
+pub fn get_bytes(url: &str) -> Result<Vec<u8>, String> {
     let out = std::process::Command::new("curl")
         .args(["-sSL", "--max-time", "20", url])
         .output()
@@ -180,11 +185,12 @@ fn get(url: &str) -> Result<String, String> {
     if !out.status.success() {
         return Err(String::from_utf8_lossy(&out.stderr).into_owned());
     }
-    Ok(String::from_utf8_lossy(&out.stdout).into_owned())
+    Ok(out.stdout)
 }
 
+/// Downloads a URL (follows redirects; at most 64 MB).
 #[cfg(windows)]
-fn get(url: &str) -> Result<String, String> {
+pub fn get_bytes(url: &str) -> Result<Vec<u8>, String> {
     use std::ptr::{null, null_mut};
     use windows_sys::Win32::Networking::WinHttp::*;
 
@@ -223,7 +229,7 @@ fn get(url: &str) -> Result<String, String> {
         host.truncate(uc.dwHostNameLength as usize);
         host.push(0);
 
-        let agent = wide("Plume/0.4.1");
+        let agent = wide(concat!("Plume/", env!("CARGO_PKG_VERSION")));
         let session = H(WinHttpOpen(agent.as_ptr(), WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY, null(), null(), 0));
         if session.0.is_null() {
             return Err(err("WinHttpOpen"));
@@ -268,14 +274,14 @@ fn get(url: &str) -> Result<String, String> {
                 return Err(err("read"));
             }
             body.truncate(start + read as usize);
-            if body.len() > 8 * 1024 * 1024 {
+            if body.len() > 64 * 1024 * 1024 {
                 return Err("response too large".into());
             }
         }
         if !(200..300).contains(&status) {
             return Err(format!("HTTP {status}"));
         }
-        Ok(String::from_utf8_lossy(&body).into_owned())
+        Ok(body)
     }
 }
 

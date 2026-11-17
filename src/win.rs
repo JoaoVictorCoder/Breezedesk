@@ -10,6 +10,7 @@ use crate::config::{self, Background, Blur, ZOrder};
 use crate::metrics::Metrics;
 use crate::render::{self, Fonts, Images};
 use crate::tray::{self, Tray, WM_APP_TRAY};
+use crate::update;
 use crate::web::Web;
 use crate::widget::{Mouse, Widget};
 use std::cell::RefCell;
@@ -17,6 +18,7 @@ use std::collections::{HashMap, VecDeque};
 use std::path::{Path, PathBuf};
 use std::ptr::{null, null_mut};
 use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::Mutex;
 use std::time::SystemTime;
 use tiny_skia::Pixmap;
 use windows_sys::Win32::Foundation::*;
@@ -41,6 +43,15 @@ const MENU_TOGGLE: usize = 4;
 const MENU_AUTOSTART: usize = 5;
 const MENU_EXAMPLES: usize = 6;
 const MENU_LOG: usize = 7;
+const MENU_CHECK_UPDATE: usize = 8;
+const MENU_UPDATE: usize = 9;
+const MENU_AUTO_UPDATE: usize = 10;
+const WM_APP_UPDATE_FOUND: u32 = WM_APP + 4;
+const WM_APP_UPDATE_NONE: u32 = WM_APP + 5;
+const WM_APP_UPDATE_READY: u32 = WM_APP + 6;
+const WM_APP_UPDATE_FAILED: u32 = WM_APP + 7;
+/// Hours between automatic update checks.
+const UPDATE_CHECK_HOURS: u64 = 6;
 
 /// "TaskbarCreated": Explorer restarted and the tray icon must be re-added.
 static WM_TASKBAR_CREATED: AtomicU32 = AtomicU32::new(0);
@@ -119,6 +130,10 @@ struct App {
     web: Web,
     positions: HashMap<String, (i32, i32)>,
     hidden: bool,
+    /// A newer release found on GitHub.
+    update: Option<update::Release>,
+    /// Download/installation in progress.
+    updating: bool,
     tray: Option<Tray>,
     watch: Vec<(PathBuf, Option<SystemTime>, u64)>,
     /// "Show desktop" (Win+D) is active: the desktop window is in front of
@@ -605,12 +620,135 @@ fn process_actions() {
     }
 }
 
+// ------------------------------------------------------------------ updates
+
+/// Results handed from the update threads to the window thread.
+static UPDATE_FOUND: Mutex<Option<update::Release>> = Mutex::new(None);
+static UPDATE_FILE: Mutex<Option<PathBuf>> = Mutex::new(None);
+static UPDATE_ERROR: Mutex<Option<String>> = Mutex::new(None);
+
+fn post(msg: u32, wparam: usize) {
+    unsafe { PostThreadMessageW(MAIN_THREAD.load(Ordering::Relaxed), msg, wparam, 0) };
+}
+
+/// True when running from the installer's folder (%LOCALAPPDATA%\Programs\Plume).
+fn is_installed() -> bool {
+    let (Ok(exe), Some(local)) = (std::env::current_exe(), std::env::var_os("LOCALAPPDATA")) else { return false };
+    let dir = PathBuf::from(local).join("Programs").join("Plume");
+    exe.to_string_lossy().to_lowercase().starts_with(&dir.to_string_lossy().to_lowercase())
+}
+
+/// Asks GitHub for a newer release in the background.
+fn check_for_update(manual: bool) {
+    std::thread::spawn(move || match update::check() {
+        Ok(Some(rel)) => {
+            *UPDATE_FOUND.lock().unwrap() = Some(rel);
+            post(WM_APP_UPDATE_FOUND, manual as usize);
+        }
+        Ok(None) => {
+            if manual {
+                post(WM_APP_UPDATE_NONE, 0);
+            }
+        }
+        Err(e) => {
+            crate::log::log(format!("update check: {e}"));
+            if manual {
+                *UPDATE_ERROR.lock().unwrap() = Some(e);
+                post(WM_APP_UPDATE_FAILED, 0);
+            }
+        }
+    });
+}
+
+fn download_update(rel: update::Release) {
+    std::thread::spawn(move || match update::download(&rel) {
+        Ok(path) => {
+            *UPDATE_FILE.lock().unwrap() = Some(path);
+            post(WM_APP_UPDATE_READY, 0);
+        }
+        Err(e) => {
+            crate::log::log(format!("update download: {e}"));
+            *UPDATE_ERROR.lock().unwrap() = Some(e);
+            post(WM_APP_UPDATE_FAILED, 0);
+        }
+    });
+}
+
+impl App {
+    /// Installed copies download and install; portable/dev copies just tell the user.
+    fn start_update(&mut self, rel: update::Release) {
+        if is_installed() && !update::DEV_BUILD {
+            if !self.updating {
+                self.updating = true;
+                self.notify("Plume", &format!("Downloading Plume {}...", update::fmt(rel.version)), false);
+                download_update(rel);
+            }
+        } else {
+            shell_open(&rel.page, None);
+        }
+    }
+
+    fn on_update_message(&mut self, msg: u32, wparam: usize) {
+        match msg {
+            WM_APP_UPDATE_FOUND => {
+                let Some(rel) = UPDATE_FOUND.lock().unwrap().take() else { return };
+                let manual = wparam != 0;
+                let v = update::fmt(rel.version);
+                self.update = Some(rel.clone());
+                if is_installed() && !update::DEV_BUILD && (manual || tray::auto_update_enabled()) {
+                    self.start_update(rel);
+                } else {
+                    let how = if is_installed() { "right-click the tray icon and choose Update" } else { "download it from GitHub (tray menu > Update)" };
+                    self.notify("Plume update available", &format!("Plume {v} is available: {how}."), false);
+                }
+            }
+            WM_APP_UPDATE_NONE => {
+                let v = update::fmt(update::current());
+                self.notify("Plume", &format!("Plume is up to date ({v})."), false);
+            }
+            WM_APP_UPDATE_READY => {
+                let Some(path) = UPDATE_FILE.lock().unwrap().take() else { return };
+                self.notify("Plume", "Installing the update. Plume will restart in a moment.", false);
+                let (verb, file, args) = (wide("open"), wide(&path.to_string_lossy()), wide("/S /RELAUNCH"));
+                let r = unsafe {
+                    ShellExecuteW(null_mut(), verb.as_ptr(), file.as_ptr(), args.as_ptr(), null(), SW_HIDE)
+                };
+                if (r as isize) > 32 {
+                    unsafe { PostQuitMessage(0) }; // the installer replaces and restarts us
+                } else {
+                    self.updating = false;
+                    self.notify("Plume update failed", "Could not start the installer.", true);
+                }
+            }
+            WM_APP_UPDATE_FAILED => {
+                self.updating = false;
+                let e = UPDATE_ERROR.lock().unwrap().take().unwrap_or_default();
+                self.notify("Plume update failed", &e, true);
+            }
+            _ => {}
+        }
+    }
+}
+
 fn show_menu(hwnd: HWND) {
     unsafe {
         let hidden = with_app(|a| a.hidden).unwrap_or(false);
         let autostart = tray::autostart_enabled();
+        let auto_update = tray::auto_update_enabled();
+        let available = with_app(|a| a.update.clone()).flatten();
+        let title = format!(
+            "Plume {}{}",
+            update::fmt(update::current()),
+            if update::DEV_BUILD { " (dev build)" } else { "" }
+        );
+        let update_label = match &available {
+            Some(r) => format!("Update to {}", update::fmt(r.version)),
+            None => "Check for updates".to_string(),
+        };
         let menu = CreatePopupMenu();
-        let items: [(usize, &str, u32); 10] = [
+        let items: Vec<(usize, &str, u32)> = vec![
+            (0, &title, MF_STRING | MF_GRAYED),
+            (0, "", MF_SEPARATOR),
             (MENU_TOGGLE, if hidden { "Show widgets" } else { "Hide widgets" }, MF_STRING),
             (0, "", MF_SEPARATOR),
             (MENU_RELOAD, "Reload widgets", MF_STRING),
@@ -619,6 +757,13 @@ fn show_menu(hwnd: HWND) {
             (MENU_LOG, "Open log", MF_STRING),
             (0, "", MF_SEPARATOR),
             (MENU_AUTOSTART, "Start with Windows", MF_STRING | if autostart { MF_CHECKED } else { MF_UNCHECKED }),
+            (0, "", MF_SEPARATOR),
+            (if available.is_some() { MENU_UPDATE } else { MENU_CHECK_UPDATE }, &update_label, MF_STRING),
+            (
+                MENU_AUTO_UPDATE,
+                "Automatic updates",
+                MF_STRING | if auto_update { MF_CHECKED } else { MF_UNCHECKED } | if update::DEV_BUILD { MF_GRAYED } else { 0 },
+            ),
             (0, "", MF_SEPARATOR),
             (MENU_EXIT, "Exit", MF_STRING),
         ];
@@ -639,6 +784,13 @@ fn show_menu(hwnd: HWND) {
                 with_app(|a| a.set_hidden(!a.hidden));
             }
             MENU_AUTOSTART => tray::set_autostart(!autostart),
+            MENU_CHECK_UPDATE => check_for_update(true),
+            MENU_UPDATE => {
+                if let Some(rel) = available {
+                    with_app(|a| a.start_update(rel));
+                }
+            }
+            MENU_AUTO_UPDATE => tray::set_auto_update(!auto_update),
             // Reloading destroys this window, so it is done outside the wndproc.
             MENU_RELOAD => {
                 PostThreadMessageW(GetCurrentThreadId(), WM_APP_RELOAD, 0, 0);
@@ -932,9 +1084,19 @@ pub fn run(dir: PathBuf) {
             tray: (!tray_hwnd.is_null()).then(|| Tray::new(tray_hwnd)),
             watch: Vec::new(),
             desktop_shown: false,
+            update: None,
+            updating: false,
         })
     });
     with_app(App::load);
+    // Automatic update checks: shortly after start, then every few hours.
+    if !update::DEV_BUILD {
+        std::thread::spawn(|| loop {
+            std::thread::sleep(std::time::Duration::from_secs(20));
+            check_for_update(false);
+            std::thread::sleep(std::time::Duration::from_secs(UPDATE_CHECK_HOURS * 3600));
+        });
+    }
     // Get told when the foreground window changes (no polling).
     let hook = unsafe {
         SetWinEventHook(
@@ -955,6 +1117,11 @@ pub fn run(dir: PathBuf) {
                 match msg.message {
                     WM_APP_RELOAD => {
                         with_app(App::load);
+                        continue;
+                    }
+                    WM_APP_UPDATE_FOUND | WM_APP_UPDATE_NONE | WM_APP_UPDATE_READY | WM_APP_UPDATE_FAILED => {
+                        let (m, w) = (msg.message, msg.wParam);
+                        with_app(|a| a.on_update_message(m, w));
                         continue;
                     }
                     WM_APP_ACTIONS => {

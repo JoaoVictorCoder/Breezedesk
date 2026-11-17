@@ -14,6 +14,7 @@ mod render;
 mod script;
 #[cfg(windows)]
 mod tray;
+mod update;
 mod web;
 mod widget;
 #[cfg(windows)]
@@ -21,16 +22,28 @@ mod win;
 
 use std::path::{Path, PathBuf};
 
-/// Widgets folder: first argument, or `widgets/` next to the executable.
+fn exe_dir() -> PathBuf {
+    std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|p| p.to_path_buf()))
+        .unwrap_or_else(|| PathBuf::from("."))
+}
+
+/// Widgets folder:
+/// 1. the first argument, if given;
+/// 2. `widgets\` next to the executable, if it exists (portable copy, zip);
+/// 3. `%APPDATA%\Plume\widgets` (installed copy; survives updates).
 fn widgets_dir() -> PathBuf {
     if let Some(arg) = std::env::args().skip(1).find(|a| !a.starts_with("--")) {
         return PathBuf::from(arg);
     }
-    let exe_dir = std::env::current_exe()
-        .ok()
-        .and_then(|p| p.parent().map(|p| p.to_path_buf()))
-        .unwrap_or_else(|| PathBuf::from("."));
-    let dir = exe_dir.join("widgets");
+    let portable = exe_dir().join("widgets");
+    if portable.exists() {
+        return portable;
+    }
+    let dir = std::env::var_os("APPDATA")
+        .map(|p| PathBuf::from(p).join("Plume").join("widgets"))
+        .unwrap_or(portable);
     if !dir.exists() {
         // First run: write the examples.
         install_examples(&dir);

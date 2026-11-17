@@ -1,0 +1,59 @@
+name: Release
+
+# Every push to main becomes a GitHub release. Installed copies of Plume
+# check the latest release and update themselves.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # tags are needed to pick the next version
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-gnu
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Install MinGW and NSIS
+        run: sudo apt-get update && sudo apt-get install -y gcc-mingw-w64-x86-64 nsis zip
+
+      - name: Test
+        run: cargo test
+
+      - name: Pick version
+        id: version
+        run: scripts/next-version.sh >> "$GITHUB_OUTPUT"
+
+      - name: Build
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          sed -i "0,/^version = .*/s//version = \"$VERSION\"/" Cargo.toml
+          cargo build --release --target x86_64-pc-windows-gnu
+
+      - name: Package
+        run: scripts/package.sh "${{ steps.version.outputs.version }}"
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          gh release create "v$VERSION" dist/* \
+            --target "$GITHUB_SHA" \
+            --title "Plume $VERSION" \
+            --generate-notes

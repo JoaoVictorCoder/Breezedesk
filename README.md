@@ -26,18 +26,27 @@ Lightweight desktop widgets for Windows, in the spirit of Rainmeter, written in 
 - Hidden widgets are not redrawn at all.
 - Downloads use WinHTTP, which is built into Windows, so no TLS library is bundled.
 
-## Build and run (on Windows)
-```
-cargo build --release
-target\release\plume.exe
-```
-On first run it creates a `widgets\` folder next to the `.exe` with examples.
-You can also point it at another folder: `plume.exe C:\my\widgets`.
+## Install
+Download **`Plume-Setup.exe`** from the [latest release](https://github.com/JoaoVictorCoder/Plume/releases/latest) and run it.
+- It installs for your user only, so it needs no administrator rights. The program goes to `%LOCALAPPDATA%\Programs\Plume`.
+- It adds a Start menu shortcut and an entry in *Apps & features* to uninstall it.
+- **Your widgets** live in `%APPDATA%\Plume\widgets`. Installs and updates never touch them, and the uninstaller asks before deleting them.
+- Windows may show a SmartScreen warning because the program is not signed: click *More info* → *Run anyway*.
 
+**Portable:** download `Plume-X.Y.Z-portable.zip` instead, extract it anywhere and run `plume.exe`. A `widgets` folder next to the `.exe` makes Plume portable: it keeps everything in that folder.
+
+## Updates
+Installed copies check GitHub for a new release 20 seconds after starting and then every 6 hours. A new version is downloaded, checked against its published SHA-256, installed silently, and Plume restarts. You get a notification when this happens.
+- To turn this off, uncheck *Automatic updates* in the tray menu. Plume then only tells you that an update exists.
+- *Check for updates* in the tray menu checks right away.
+- Portable copies are never changed: they only tell you that an update exists.
+
+## Usage
 - **Tray icon:** left click shows/hides all widgets; right click opens the menu.
-- **Menu** (tray icon or right click on a widget): *Show/Hide widgets*, *Reload widgets*, *Open widgets folder*, *Install example widgets*, *Open log*, *Start with Windows* and *Exit*.
+- **Menu** (tray icon or right click on a widget): *Show/Hide widgets*, *Reload widgets*, *Open widgets folder*, *Install example widgets*, *Open log*, *Start with Windows*, *Check for updates*, *Automatic updates* and *Exit*.
 - **Drag:** drag any part of a widget that is not clickable. Positions are saved in `widgets\positions.state`.
 - **Errors** in widget files show up as a notification and are written to `widgets\plume.log`.
+- **Other folder:** `plume.exe C:\my\widgets` uses that folder instead.
 - **PNG preview** (works on any OS): `plume --preview widgets`
 
 ## Examples
@@ -199,7 +208,38 @@ function clicked() plume.set("count", (plume.get("count") or 0) + 1) end
 | `src/web.rs` | Downloads, JSON and RSS |
 | `src/script.rs` | LuaJIT |
 | `src/actions.rs` | Click actions |
-| `src/win.rs`, `src/tray.rs` | Windows, mouse, timers, auto-reload, blur, tray |
+| `src/update.rs` | Automatic updates from GitHub Releases |
+| `src/win.rs`, `src/tray.rs` | Windows, mouse, timers, auto-reload, blur, tray, settings |
+| `installer/plume.nsi` | Windows installer (NSIS) |
+| `scripts/` | Version picking and packaging (used by the workflows) |
+| `.github/workflows/` | CI on `dev`, releases on `main` |
+
+## Development
+### Branches and releases
+| Branch | What happens on push |
+|---|---|
+| `dev` | **CI** builds and tests. The installer and the portable zip are attached to the workflow run as an artifact (*Actions* → the run → *Artifacts*). Users are not affected, and these dev builds never update themselves. |
+| `main` | **Release**: builds, tests and publishes a GitHub release. Installed copies update to it automatically. |
+
+Day-to-day flow:
+1. Work and push on `dev`, then test the build from the CI artifact.
+2. When it is good, open a pull request `dev` → `main`. CI runs on the PR, and merging it publishes the release.
+
+To protect `main` from direct pushes, go to *Settings* → *Branches* → add a rule for `main` with *Require a pull request before merging*.
+
+### Version numbers
+The release workflow uses the version in `Cargo.toml` if no release has it yet. Otherwise it releases the latest version with the last number + 1. Bugfix releases need no change. For new features or breaking changes, bump `version` in `Cargo.toml` (e.g. `0.5.3` → `0.6.0`) in the pull request.
+
+### Building
+On Windows: `cargo build --release` (needs the *Desktop development with C++* tools).
+
+The release workflow builds on Linux, cross-compiling to Windows:
+```bash
+sudo apt-get install gcc-mingw-w64-x86-64 nsis zip
+rustup target add x86_64-pc-windows-gnu
+cargo build --release --target x86_64-pc-windows-gnu
+scripts/package.sh 0.5.0        # → dist/ (installer, checksum, portable zip)
+```
 
 ## License
 [MIT](LICENSE)

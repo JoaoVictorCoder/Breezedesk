@@ -2,6 +2,16 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this project follows [Semantic Versioning](https://semver.org/).
 
+## [0.5.0] - 2026-11-17
+### Added
+- **Installer** (`Plume-Setup.exe`): installs for the current user only (no admin rights), with a Start menu shortcut, an uninstaller and an option to start with Windows.
+- **Automatic updates** from GitHub Releases: download, SHA-256 check, silent install and restart. *Check for updates* and *Automatic updates* are in the tray menu.
+- The tray menu shows the running version.
+- **Releases are automated**: every push to `main` publishes a release. The `dev` branch gets CI builds for testing.
+
+### Changed
+- Installed copies keep widgets in `%APPDATA%\Plume\widgets`. A `widgets` folder next to the `.exe` still works (portable mode).
+
 ## [0.4.1] - 2026-11-17
 ### Fixed
 - Widgets no longer disappear when "Show desktop" (Win+D) is used: while the desktop is in front, desktop-level widgets are raised above it, then put back.
