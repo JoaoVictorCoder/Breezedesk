@@ -2,6 +2,13 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this project follows [Semantic Versioning](https://semver.org/).
 
+## [0.5.2] - 2026-11-17
+### Changed
+- Fewer false antivirus alerts:
+  - `plume.exe` now carries its icon, version information and an application manifest (runs as the normal user, DPI aware).
+  - Releases are built with the Microsoft toolchain (MSVC) on Windows.
+  - The installer and uninstaller ask Plume to close instead of killing the process.
+
 ## [0.5.0] - 2026-11-17
 ### Added
 - **Installer** (`Plume-Setup.exe`): installs for the current user only (no admin rights), with a Start menu shortcut, an uninstaller and an option to start with Windows.

@@ -32,6 +32,7 @@ Download **`Plume-Setup.exe`** from the [latest release](https://github.com/Joao
 - It adds a Start menu shortcut and an entry in *Apps & features* to uninstall it.
 - **Your widgets** live in `%APPDATA%\Plume\widgets`. Installs and updates never touch them, and the uninstaller asks before deleting them.
 - Windows may show a SmartScreen warning because the program is not signed: click *More info* → *Run anyway*.
+- Some antivirus programs (e.g. Windows Defender's `Wacatac!ml`) can flag new, unsigned programs by mistake. The `!ml` means a machine-learning guess, not a known virus. The full source code is in this repository, and false positives can be reported to Microsoft at https://www.microsoft.com/en-us/wdsi/filesubmission.
 
 **Portable:** download `Plume-X.Y.Z-portable.zip` instead, extract it anywhere and run `plume.exe`. A `widgets` folder next to the `.exe` makes Plume portable: it keeps everything in that folder.
 
@@ -233,7 +234,7 @@ The release workflow uses the version in `Cargo.toml` if no release has it yet. 
 ### Building
 On Windows: `cargo build --release` (needs the *Desktop development with C++* tools).
 
-The release workflow builds on Linux, cross-compiling to Windows:
+Releases are built on Windows with the Microsoft toolchain (MSVC), then packaged on Linux. To build and package everything on Linux instead (cross-compiling):
 ```bash
 sudo apt-get install gcc-mingw-w64-x86-64 nsis zip
 rustup target add x86_64-pc-windows-gnu

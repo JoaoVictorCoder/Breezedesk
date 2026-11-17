@@ -1003,6 +1003,15 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) 
             }
             DefWindowProcW(hwnd, msg, wp, lp)
         }
+        // The installer/uninstaller asks Plume to quit by closing the hidden
+        // tray window. Widget windows ignore close requests (e.g. Alt+F4).
+        WM_CLOSE => {
+            let is_widget = with_app(|a| a.index_of(hwnd).is_some()).unwrap_or(true);
+            if !is_widget {
+                PostQuitMessage(0);
+            }
+            0
+        }
         // Drag finished: save the position.
         WM_EXITSIZEMOVE => {
             let mut r = RECT { left: 0, top: 0, right: 0, bottom: 0 };

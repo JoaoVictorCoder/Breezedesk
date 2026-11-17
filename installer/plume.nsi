@@ -30,6 +30,7 @@ SetCompressor /SOLID lzma
 !include "MUI2.nsh"
 !include "FileFunc.nsh"
 !include "LogicLib.nsh"
+!include "WinMessages.nsh"
 
 Name "${APP}"
 OutFile "${OUTFILE}"
@@ -63,15 +64,36 @@ VIAddVersionKey "LegalCopyright" "MIT License"
 
 !insertmacro MUI_LANGUAGE "English"
 
+; Asks a running Plume to quit (it closes when its hidden tray window gets
+; WM_CLOSE) and waits up to 10 seconds for it to exit.
+!macro ClosePlume UN
+Function ${UN}ClosePlume
+  FindWindow $0 "PlumeWidget" "PlumeTray"
+  ${If} $0 <> 0
+    SendMessage $0 ${WM_CLOSE} 0 0 /TIMEOUT=2000
+  ${EndIf}
+  StrCpy $1 0
+  ${Do}
+    FindWindow $0 "PlumeWidget" ""
+    ${If} $0 = 0
+      ${Break}
+    ${EndIf}
+    Sleep 200
+    IntOp $1 $1 + 1
+  ${LoopUntil} $1 >= 50
+  Sleep 300
+FunctionEnd
+!macroend
+!insertmacro ClosePlume ""
+!insertmacro ClosePlume "un."
+
 Function EnableAutostart
   WriteRegStr HKCU "${RUN_KEY}" "${APP}" '"$INSTDIR\plume.exe"'
 FunctionEnd
 
 Section "Install"
   ; Close a running Plume so its files can be replaced.
-  nsExec::Exec 'taskkill /F /IM plume.exe'
-  Pop $0
-  Sleep 800
+  Call ClosePlume
 
   SetOutPath "$INSTDIR"
   File "/oname=plume.exe" "${EXE}"
@@ -107,9 +129,7 @@ Section "Install"
 SectionEnd
 
 Section "Uninstall"
-  nsExec::Exec 'taskkill /F /IM plume.exe'
-  Pop $0
-  Sleep 800
+  Call un.ClosePlume
 
   Delete "$INSTDIR\plume.exe"
   Delete "$INSTDIR\plume.ico"
