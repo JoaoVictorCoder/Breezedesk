@@ -2,6 +2,13 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this project follows [Semantic Versioning](https://semver.org/).
 
+## [0.4.1] - 2026-11-17
+### Fixed
+- Widgets no longer disappear when "Show desktop" (Win+D) is used: while the desktop is in front, desktop-level widgets are raised above it, then put back.
+- Smoother updates: sensors (CPU, disks, temperatures, GPU...) are now read in a background thread, so slow readings no longer freeze drawing every second.
+- Widgets that update every second (or slower) are lined up with the clock, so clocks never skip or repeat a second.
+- The media example updates at ~32 fps for a smoother visualizer.
+
 ## [0.4.0] - 2026-11-16
 ### Added
 - **Expressions** everywhere: `{cpu * 2}`, conditions, ternaries, functions (`round`, `default`, `trunc`, `fmt_time`...), dynamic colors, `visible` conditions.

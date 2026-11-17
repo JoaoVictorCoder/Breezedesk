@@ -23,6 +23,7 @@ use windows_sys::Win32::Foundation::*;
 use windows_sys::Win32::Graphics::Gdi::*;
 use windows_sys::Win32::System::LibraryLoader::{GetModuleHandleW, GetProcAddress};
 use windows_sys::Win32::System::Threading::GetCurrentThreadId;
+use windows_sys::Win32::UI::Accessibility::{SetWinEventHook, UnhookWinEvent, HWINEVENTHOOK};
 use windows_sys::Win32::UI::HiDpi::{SetProcessDpiAwarenessContext, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2};
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::*;
 use windows_sys::Win32::UI::Shell::ShellExecuteW;
@@ -120,6 +121,9 @@ struct App {
     hidden: bool,
     tray: Option<Tray>,
     watch: Vec<(PathBuf, Option<SystemTime>, u64)>,
+    /// "Show desktop" (Win+D) is active: the desktop window is in front of
+    /// everything, so desktop-level widgets are raised above it meanwhile.
+    desktop_shown: bool,
 }
 
 thread_local! {
@@ -232,6 +236,40 @@ impl App {
                 unsafe { ShowWindow(w.hwnd, SW_HIDE) };
             }
         }
+        // New windows start at the bottom: re-apply "show desktop" if it is active.
+        if std::mem::take(&mut self.desktop_shown) {
+            self.set_desktop_shown(true);
+        }
+    }
+
+    /// Raises desktop/normal widgets above the desktop window while "show
+    /// desktop" is active, and puts them back afterwards (like Rainmeter does).
+    fn set_desktop_shown(&mut self, shown: bool) {
+        if shown == self.desktop_shown {
+            return;
+        }
+        self.desktop_shown = shown;
+        let flags = SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE;
+        for w in &self.widgets {
+            let z = w.w.cfg.z;
+            if z == ZOrder::Top {
+                continue;
+            }
+            unsafe {
+                if shown {
+                    SetWindowPos(w.hwnd, HWND_TOPMOST, 0, 0, 0, 0, flags);
+                } else {
+                    SetWindowPos(w.hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, flags);
+                    if z == ZOrder::Bottom {
+                        SetWindowPos(w.hwnd, HWND_BOTTOM, 0, 0, 0, 0, flags);
+                    }
+                }
+            }
+        }
+        if cfg!(debug_assertions) {
+            crate::log::log(format!("show desktop: {shown}"));
+            crate::log::reset_seen();
+        }
     }
 
     fn index_of(&self, hwnd: HWND) -> Option<usize> {
@@ -250,7 +288,9 @@ impl App {
                 return;
             }
             ShowWindow(w.hwnd, SW_SHOWNOACTIVATE);
-            if w.w.cfg.z == ZOrder::Bottom {
+            if self.desktop_shown && w.w.cfg.z != ZOrder::Top {
+                SetWindowPos(w.hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+            } else if w.w.cfg.z == ZOrder::Bottom {
                 SetWindowPos(w.hwnd, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
             }
         }
@@ -392,9 +432,23 @@ fn create_window(w: Widget, positions: &HashMap<String, (i32, i32)>) -> Option<W
             | SWP_SHOWWINDOW
             | if cfg.z == ZOrder::Bottom { 0 } else { SWP_NOZORDER };
         SetWindowPos(hwnd, insert_after, 0, 0, 0, 0, flags);
-        SetTimer(hwnd, TIMER_UPDATE, cfg.update_ms.max(16), None);
+        arm_timer(hwnd, cfg.update_ms);
     }
     Some(WinWidget { w, hwnd, pixmap, surface, shown: true })
+}
+
+/// Schedules the next update. Slow widgets (>= 0.5 s) are lined up with the
+/// clock (just after each second turns), so a clock never skips or repeats a
+/// second; fast ones just repeat.
+fn arm_timer(hwnd: HWND, update_ms: u32) {
+    let ms = update_ms.max(16);
+    let delay = if ms >= 500 {
+        let now = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).map_or(0, |d| d.as_millis() as u64);
+        (ms as u64 - now % ms as u64 + 15) as u32
+    } else {
+        ms
+    };
+    unsafe { SetTimer(hwnd, TIMER_UPDATE, delay, None) };
 }
 
 /// Blur/acrylic behind the widget (undocumented but stable API, also used by
@@ -631,6 +685,41 @@ fn track_leave(hwnd: HWND, nonclient: bool) {
     unsafe { TrackMouseEvent(&mut t) };
 }
 
+/// True for the desktop window that "show desktop" (Win+D) brings to the front.
+fn is_desktop_window(hwnd: HWND) -> bool {
+    let mut buf = [0u16; 32];
+    let n = unsafe { GetClassNameW(hwnd, buf.as_mut_ptr(), buf.len() as i32) };
+    let class = String::from_utf16_lossy(&buf[..n.max(0) as usize]);
+    class == "WorkerW" || class == "Progman"
+}
+
+unsafe extern "system" fn on_foreground(
+    _hook: HWINEVENTHOOK,
+    _event: u32,
+    hwnd: HWND,
+    _object: i32,
+    _child: i32,
+    _thread: u32,
+    _time: u32,
+) {
+    check_foreground(hwnd);
+}
+
+/// Updates the "show desktop" state from the window now in the foreground.
+/// Our own windows (a clicked widget, the tray menu) leave the state as it is.
+fn check_foreground(hwnd: HWND) {
+    if hwnd.is_null() {
+        return;
+    }
+    let mut pid = 0u32;
+    unsafe { GetWindowThreadProcessId(hwnd, &mut pid) };
+    if pid == std::process::id() {
+        return;
+    }
+    let desktop = is_desktop_window(hwnd);
+    with_app(|a| a.set_desktop_shown(desktop));
+}
+
 unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) -> LRESULT {
     match msg {
         // Tray icon: left click shows/hides, right click opens the menu.
@@ -649,7 +738,15 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) 
             0
         }
         WM_TIMER if wp == TIMER_UPDATE => {
-            with_app(|a| a.index_of(hwnd).map(|i| a.paint(i, true)));
+            with_app(|a| {
+                let i = a.index_of(hwnd)?;
+                let ms = a.widgets[i].w.cfg.update_ms;
+                if ms >= 500 {
+                    arm_timer(hwnd, ms);
+                }
+                a.paint(i, true);
+                Some(())
+            });
             0
         }
         // Auto-reload when a widget file changes.
@@ -659,6 +756,8 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) 
                     a.load();
                 }
             });
+            // Backup for the foreground hook, in case it is not delivered.
+            check_foreground(GetForegroundWindow());
             0
         }
         // Over a clickable element: normal window area. Elsewhere: "title bar",
@@ -743,7 +842,9 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) 
         }
         // "bottom" widgets never rise in the window stack.
         WM_WINDOWPOSCHANGING => {
-            let bottom = with_app(|a| a.index_of(hwnd).map(|i| a.widgets[i].w.cfg.z == ZOrder::Bottom));
+            let bottom = with_app(|a| {
+                a.index_of(hwnd).map(|i| a.widgets[i].w.cfg.z == ZOrder::Bottom && !a.desktop_shown)
+            });
             if bottom.flatten().unwrap_or(false) {
                 let wpos = &mut *(lp as *mut WINDOWPOS);
                 wpos.hwndInsertAfter = HWND_BOTTOM;
@@ -830,9 +931,22 @@ pub fn run(dir: PathBuf) {
             hidden: false,
             tray: (!tray_hwnd.is_null()).then(|| Tray::new(tray_hwnd)),
             watch: Vec::new(),
+            desktop_shown: false,
         })
     });
     with_app(App::load);
+    // Get told when the foreground window changes (no polling).
+    let hook = unsafe {
+        SetWinEventHook(
+            EVENT_SYSTEM_FOREGROUND,
+            EVENT_SYSTEM_FOREGROUND,
+            null_mut(),
+            Some(on_foreground),
+            0,
+            0,
+            WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS,
+        )
+    };
 
     unsafe {
         let mut msg: MSG = std::mem::zeroed();
@@ -855,6 +969,9 @@ pub fn run(dir: PathBuf) {
         }
     }
 
+    if !hook.is_null() {
+        unsafe { UnhookWinEvent(hook) };
+    }
     // Destroy the windows before exiting.
     APP.with(|a| a.borrow_mut().take());
 }

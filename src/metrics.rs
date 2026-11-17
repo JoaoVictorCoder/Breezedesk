@@ -2,12 +2,14 @@
 //! audio, time). Only the categories some widget actually uses are measured.
 
 use crate::expr::Value;
-use crate::{audio::Audio, media::Media, probe::Probe};
+use crate::probe::{Battery, Probe};
+use crate::{audio::Audio, media::Media};
 use std::cell::Cell;
+use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use sysinfo::{Components, Disks, Networks, System};
 
-const MIN_INTERVAL: Duration = Duration::from_millis(900);
 const GB: f64 = 1024.0 * 1024.0 * 1024.0;
 
 pub mod cat {
@@ -41,49 +43,80 @@ pub fn category(name: &str) -> u32 {
     }
 }
 
-pub struct Metrics {
-    sys: System,
-    nets: Option<Networks>,
-    disks: Option<Disks>,
-    comps: Option<Components>,
-    probe: Probe,
-    pub media: Media,
-    pub audio: Audio,
-    /// Categories requested since the last refresh.
-    wants: Cell<u32>,
-    last: Option<Instant>,
+/// Latest measurements, written by the sampler thread.
+#[derive(Clone)]
+struct Snapshot {
     cpu: f32,
     ram_used: u64,
     ram_total: u64,
     net_down: f64,
     net_up: f64,
     cpu_temp: Option<f32>,
+    /// (mount point in lowercase without trailing slash, total, available)
+    disks: Vec<(String, u64, u64)>,
+    battery: Option<Battery>,
+    gpu: Option<f32>,
+    gpu_mem_used: Option<u64>,
+    gpu_mem_total: Option<u64>,
+    gpu_temp: Option<f32>,
 }
 
-impl Metrics {
-    pub fn new() -> Self {
-        Metrics {
-            sys: System::new(),
-            nets: None,
-            disks: None,
-            comps: None,
-            probe: Probe::default(),
-            media: Media::default(),
-            audio: Audio::default(),
-            wants: Cell::new(0),
-            last: None,
+impl Default for Snapshot {
+    fn default() -> Self {
+        Snapshot {
             cpu: 0.0,
             ram_used: 0,
             ram_total: 1,
             net_down: 0.0,
             net_up: 0.0,
             cpu_temp: None,
+            disks: Vec::new(),
+            battery: None,
+            gpu: None,
+            gpu_mem_used: None,
+            gpu_mem_total: None,
+            gpu_temp: None,
+        }
+    }
+}
+
+#[derive(Default)]
+struct Shared {
+    snap: Mutex<Snapshot>,
+    version: AtomicU64,
+    wants: AtomicU32,
+}
+
+/// System data. The slow part (reading sensors, WMI, PDH...) runs in a
+/// background thread, so drawing never waits for it.
+pub struct Metrics {
+    shared: Arc<Shared>,
+    snap: Snapshot,
+    seen_version: u64,
+    started: bool,
+    pub media: Media,
+    pub audio: Audio,
+    /// Categories used by the widgets.
+    wants: Cell<u32>,
+}
+
+impl Metrics {
+    pub fn new() -> Self {
+        Metrics {
+            shared: Arc::default(),
+            snap: Snapshot::default(),
+            seen_version: 0,
+            started: false,
+            media: Media::default(),
+            audio: Audio::default(),
+            wants: Cell::new(0),
         }
     }
 
     /// Forgets what was requested (after a reload).
     pub fn reset_wants(&self) {
         self.wants.set(0);
+        self.shared.wants.store(0, Ordering::Relaxed);
     }
 
     /// Marks a name as used (so its category gets measured).
@@ -91,51 +124,20 @@ impl Metrics {
         self.wants.set(self.wants.get() | category(name));
     }
 
-    /// Refreshes the requested categories, at most ~once per second.
+    /// Takes the latest measurements (cheap: never waits for the sensors).
     pub fn refresh(&mut self) {
-        let elapsed = self.last.map_or(Duration::MAX, |l| l.elapsed());
-        if elapsed < MIN_INTERVAL {
-            return;
-        }
-        let first = self.last.is_none();
-        self.last = Some(Instant::now());
         let w = self.wants.get();
-
-        if w & cat::CPU != 0 {
-            self.sys.refresh_cpu_usage();
-            self.cpu = self.sys.global_cpu_usage();
+        self.shared.wants.fetch_or(w, Ordering::Relaxed);
+        if !self.started {
+            self.started = true;
+            let shared = self.shared.clone();
+            std::thread::spawn(move || sampler(shared));
         }
-        if w & cat::MEM != 0 || first {
-            self.sys.refresh_memory();
-            self.ram_used = self.sys.used_memory();
-            self.ram_total = self.sys.total_memory().max(1);
+        let v = self.shared.version.load(Ordering::Acquire);
+        if v != self.seen_version {
+            self.seen_version = v;
+            self.snap = self.shared.snap.lock().unwrap().clone();
         }
-        if w & cat::NET != 0 {
-            match &mut self.nets {
-                Some(n) => {
-                    n.refresh(true);
-                    let secs = elapsed.as_secs_f64().max(0.1);
-                    let (rx, tx) = n
-                        .values()
-                        .fold((0u64, 0u64), |(r, t), d| (r + d.received(), t + d.transmitted()));
-                    self.net_down = rx as f64 / secs;
-                    self.net_up = tx as f64 / secs;
-                }
-                None => self.nets = Some(Networks::new_with_refreshed_list()),
-            }
-        }
-        if w & cat::DISK != 0 {
-            match &mut self.disks {
-                Some(d) => d.refresh(true),
-                None => self.disks = Some(Disks::new_with_refreshed_list()),
-            }
-        }
-        if w & cat::TEMP != 0 {
-            let comps = self.comps.get_or_insert_with(Components::new_with_refreshed_list);
-            comps.refresh(true);
-            self.cpu_temp = cpu_temperature(comps);
-        }
-        self.probe.refresh(w);
         if w & cat::MEDIA != 0 {
             self.media.ensure_started();
         }
@@ -145,7 +147,7 @@ impl Metrics {
     }
 
     pub fn ram_percent(&self) -> f32 {
-        self.ram_used as f32 * 100.0 / self.ram_total as f32
+        self.snap.ram_used as f32 * 100.0 / self.snap.ram_total as f32
     }
 
     pub fn var(&self, name: &str) -> Option<Value> {
@@ -155,31 +157,31 @@ impl Metrics {
         let now = chrono::Local::now();
         use chrono::{Datelike, Timelike};
         match name {
-            "cpu" => num(self.cpu as f64, 0),
+            "cpu" => num(self.snap.cpu as f64, 0),
             "ram" => num(self.ram_percent() as f64, 0),
-            "ram_used" => num(self.ram_used as f64 / GB, 1),
-            "ram_total" => num(self.ram_total as f64 / GB, 1),
-            "ram_free" => num(self.ram_total.saturating_sub(self.ram_used) as f64 / GB, 1),
-            "net_down" => Some(Value::Str(rate(self.net_down))),
-            "net_up" => Some(Value::Str(rate(self.net_up))),
-            "net_down_bytes" => num(self.net_down, 0),
-            "net_up_bytes" => num(self.net_up, 0),
+            "ram_used" => num(self.snap.ram_used as f64 / GB, 1),
+            "ram_total" => num(self.snap.ram_total as f64 / GB, 1),
+            "ram_free" => num(self.snap.ram_total.saturating_sub(self.snap.ram_used) as f64 / GB, 1),
+            "net_down" => Some(Value::Str(rate(self.snap.net_down))),
+            "net_up" => Some(Value::Str(rate(self.snap.net_up))),
+            "net_down_bytes" => num(self.snap.net_down, 0),
+            "net_up_bytes" => num(self.snap.net_up, 0),
             "disk" | "disk_used" | "disk_free" | "disk_total" => self.call(name, &[]),
-            "cpu_temp" => opt(self.cpu_temp),
-            "gpu" => opt(self.probe.gpu),
-            "gpu_mem_used" => Some(self.probe.gpu_mem_used.map_or(Value::Null, |b| Value::Num(b as f64 / GB, 1))),
-            "gpu_mem_total" => Some(self.probe.gpu_mem_total.map_or(Value::Null, |b| Value::Num(b as f64 / GB, 1))),
-            "gpu_mem" => Some(match (self.probe.gpu_mem_used, self.probe.gpu_mem_total) {
+            "cpu_temp" => opt(self.snap.cpu_temp),
+            "gpu" => opt(self.snap.gpu),
+            "gpu_mem_used" => Some(self.snap.gpu_mem_used.map_or(Value::Null, |b| Value::Num(b as f64 / GB, 1))),
+            "gpu_mem_total" => Some(self.snap.gpu_mem_total.map_or(Value::Null, |b| Value::Num(b as f64 / GB, 1))),
+            "gpu_mem" => Some(match (self.snap.gpu_mem_used, self.snap.gpu_mem_total) {
                 (Some(u), Some(t)) if t > 0 => Value::Num(u as f64 * 100.0 / t as f64, 0),
                 _ => Value::Null,
             }),
-            "gpu_temp" => opt(self.probe.gpu_temp),
-            "has_battery" => Some(Value::bool(self.probe.battery.is_some())),
-            "battery" => opt(self.probe.battery.map(|b| b.percent)),
-            "battery_charging" => Some(Value::bool(self.probe.battery.is_some_and(|b| b.charging))),
-            "battery_plugged" => Some(Value::bool(self.probe.battery.is_some_and(|b| b.plugged))),
+            "gpu_temp" => opt(self.snap.gpu_temp),
+            "has_battery" => Some(Value::bool(self.snap.battery.is_some())),
+            "battery" => opt(self.snap.battery.map(|b| b.percent)),
+            "battery_charging" => Some(Value::bool(self.snap.battery.is_some_and(|b| b.charging))),
+            "battery_plugged" => Some(Value::bool(self.snap.battery.is_some_and(|b| b.plugged))),
             "battery_time" => Some(Value::Str(
-                self.probe.battery.and_then(|b| b.seconds_left).map_or(String::new(), |s| {
+                self.snap.battery.and_then(|b| b.seconds_left).map_or(String::new(), |s| {
                     format!("{}h {:02}m", s / 3600, (s % 3600) / 60)
                 }),
             )),
@@ -257,18 +259,81 @@ impl Metrics {
 
     /// (total, available) bytes of a drive: "C", "C:", "C:\" or a mount point.
     fn find_disk(&self, drive: &str) -> Option<(u64, u64)> {
-        let disks = self.disks.as_ref()?;
         let want = drive.trim_end_matches(['\\', '/']).to_lowercase();
         let want = if want.len() == 1 { format!("{want}:") } else { want };
-        disks
-            .list()
+        self.snap
+            .disks
             .iter()
-            .find(|d| {
-                let mp = d.mount_point().to_string_lossy().to_lowercase();
-                let mp = mp.trim_end_matches(['\\', '/']);
-                mp == want || (mp.is_empty() && want == "/")
-            })
-            .map(|d| (d.total_space(), d.available_space()))
+            .find(|(mp, _, _)| *mp == want || (mp.is_empty() && want == "/") || (want.is_empty() && mp.is_empty()))
+            .map(|(_, t, a)| (*t, *a))
+    }
+}
+
+/// Background thread: measures what the widgets use, once per second.
+fn sampler(shared: Arc<Shared>) {
+    let mut sys = System::new();
+    let mut nets: Option<Networks> = None;
+    let mut disks: Option<Disks> = None;
+    let mut comps: Option<Components> = None;
+    let mut probe = Probe::default();
+    let mut snap = Snapshot::default();
+    let mut last = Instant::now();
+    sys.refresh_memory();
+    loop {
+        let started = Instant::now();
+        let elapsed = last.elapsed().as_secs_f64().max(0.1);
+        last = started;
+        let w = shared.wants.load(Ordering::Relaxed);
+
+        if w & cat::CPU != 0 {
+            sys.refresh_cpu_usage();
+            snap.cpu = sys.global_cpu_usage();
+        }
+        sys.refresh_memory();
+        snap.ram_used = sys.used_memory();
+        snap.ram_total = sys.total_memory().max(1);
+        if w & cat::NET != 0 {
+            match &mut nets {
+                Some(n) => {
+                    n.refresh(true);
+                    let (rx, tx) =
+                        n.values().fold((0u64, 0u64), |(r, t), d| (r + d.received(), t + d.transmitted()));
+                    snap.net_down = rx as f64 / elapsed;
+                    snap.net_up = tx as f64 / elapsed;
+                }
+                None => nets = Some(Networks::new_with_refreshed_list()),
+            }
+        }
+        if w & cat::DISK != 0 {
+            let d = disks.get_or_insert_with(Disks::new_with_refreshed_list);
+            d.refresh(true);
+            snap.disks = d
+                .list()
+                .iter()
+                .map(|d| {
+                    let mp = d.mount_point().to_string_lossy().to_lowercase();
+                    let mp = mp.trim_end_matches(['\\', '/']).to_string();
+                    (mp, d.total_space(), d.available_space())
+                })
+                .collect();
+        }
+        if w & cat::TEMP != 0 {
+            let c = comps.get_or_insert_with(Components::new_with_refreshed_list);
+            c.refresh(true);
+            snap.cpu_temp = cpu_temperature(c);
+        }
+        probe.refresh(w);
+        snap.battery = probe.battery;
+        snap.gpu = probe.gpu;
+        snap.gpu_mem_used = probe.gpu_mem_used;
+        snap.gpu_mem_total = probe.gpu_mem_total;
+        snap.gpu_temp = probe.gpu_temp;
+
+        *shared.snap.lock().unwrap() = snap.clone();
+        shared.version.fetch_add(1, Ordering::Release);
+        // Faster first rounds so values show up quickly after start.
+        let period = if shared.version.load(Ordering::Relaxed) < 3 { 300 } else { 1000 };
+        std::thread::sleep(Duration::from_millis(period).saturating_sub(started.elapsed()));
     }
 }
 

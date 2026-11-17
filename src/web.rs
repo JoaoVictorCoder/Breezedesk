@@ -223,7 +223,7 @@ fn get(url: &str) -> Result<String, String> {
         host.truncate(uc.dwHostNameLength as usize);
         host.push(0);
 
-        let agent = wide("Plume/0.4");
+        let agent = wide("Plume/0.4.1");
         let session = H(WinHttpOpen(agent.as_ptr(), WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY, null(), null(), 0));
         if session.0.is_null() {
             return Err(err("WinHttpOpen"));
