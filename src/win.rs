@@ -181,6 +181,8 @@ struct App {
     hidden: bool,
     /// Widgets cannot be dragged.
     locked: bool,
+    /// While dragging: cursor position relative to the widget's corner.
+    drag_offset: Option<(i32, i32)>,
     /// A newer release found on GitHub.
     update: Option<update::Release>,
     /// Download/installation in progress.
@@ -529,7 +531,12 @@ impl App {
     fn mouse(&mut self, i: usize, x: i32, y: i32, button: Mouse) -> bool {
         let s = self.widgets[i].scale;
         let w = &self.widgets[i].w;
-        let Some(el) = w.element_at(x as f32 / s, y as f32 / s) else { return false };
+        let (lx, ly) = (x as f32 / s, y as f32 / s);
+        let found = match button {
+            Mouse::Left | Mouse::Middle => w.clickable_at(lx, ly),
+            _ => w.element_at(lx, ly),
+        };
+        let Some(el) = found else { return false };
         let list = w.actions(el, button, &self.metrics, &self.web);
         if list.is_empty() {
             return false;
@@ -630,44 +637,42 @@ fn ensure_visible(hwnd: HWND) {
     }
 }
 
-/// While dragging: snaps the widget to the screen edges and to other widgets.
-/// Hold Shift to place it freely.
-fn snap(a: &App, hwnd: HWND, r: &mut RECT) {
-    if unsafe { GetKeyState(VK_SHIFT as i32) } < 0 {
-        return;
+/// While dragging: where the widget goes. The position always comes from the
+/// mouse (cursor minus where the widget was grabbed), then snaps to the screen
+/// edges and neighbouring widgets (see snap.rs). Hold Shift to place it freely.
+fn drag_rect(a: &App, hwnd: HWND, proposed: &RECT) -> RECT {
+    let (w, h) = (proposed.right - proposed.left, proposed.bottom - proposed.top);
+    let (mut x, mut y) = (proposed.left, proposed.top);
+    if let Some((ox, oy)) = a.drag_offset {
+        let mut pt = POINT { x: 0, y: 0 };
+        unsafe { GetCursorPos(&mut pt) };
+        (x, y) = (pt.x - ox, pt.y - oy);
     }
-    let Some(i) = a.index_of(hwnd) else { return };
-    let d = (SNAP as f32 * a.widgets[i].scale) as i32;
-    let (w, h) = (r.right - r.left, r.bottom - r.top);
-    let mut xs: Vec<i32> = Vec::new(); // x positions to snap the left edge to
-    let mut ys: Vec<i32> = Vec::new();
-    unsafe {
-        let mon = MonitorFromRect(r, MONITOR_DEFAULTTONEAREST);
-        let mut mi: MONITORINFO = std::mem::zeroed();
+    let shift = unsafe { GetKeyState(VK_SHIFT as i32) } < 0;
+    if let (false, Some(i)) = (shift, a.index_of(hwnd)) {
+        let s = a.widgets[i].scale;
+        let target = RECT { left: x, top: y, right: x + w, bottom: y + h };
+        let mut mi: MONITORINFO = unsafe { std::mem::zeroed() };
         mi.cbSize = std::mem::size_of::<MONITORINFO>() as u32;
-        if GetMonitorInfoW(mon, &mut mi) != 0 {
+        let mon = unsafe { MonitorFromRect(&target, MONITOR_DEFAULTTONEAREST) };
+        if unsafe { GetMonitorInfoW(mon, &mut mi) } != 0 {
             let wk = mi.rcWork;
-            xs.extend([wk.left, wk.right - w]);
-            ys.extend([wk.top, wk.bottom - h]);
+            let work = crate::snap::Rect { x: wk.left, y: wk.top, w: wk.right - wk.left, h: wk.bottom - wk.top };
+            let others: Vec<crate::snap::Rect> = a
+                .widgets
+                .iter()
+                .filter(|o| o.hwnd != hwnd && o.shown && !a.hidden)
+                .map(|o| {
+                    let mut r = RECT { left: 0, top: 0, right: 0, bottom: 0 };
+                    unsafe { GetWindowRect(o.hwnd, &mut r) };
+                    crate::snap::Rect { x: r.left, y: r.top, w: r.right - r.left, h: r.bottom - r.top }
+                })
+                .collect();
+            let me = crate::snap::Rect { x, y, w, h };
+            (x, y) = crate::snap::snap(me, work, &others, (SNAP as f32 * s) as i32, (4.0 * s) as i32);
         }
-        for other in a.widgets.iter().filter(|o| o.hwnd != hwnd && o.shown) {
-            let mut o = RECT { left: 0, top: 0, right: 0, bottom: 0 };
-            GetWindowRect(other.hwnd, &mut o);
-            let gap = (4.0 * a.widgets[i].scale) as i32;
-            // Side by side, or aligned edges.
-            xs.extend([o.right + gap, o.left - w - gap, o.left, o.right - w]);
-            ys.extend([o.bottom + gap, o.top - h - gap, o.top, o.bottom - h]);
-        }
     }
-    let best = |cur: i32, list: &[i32]| list.iter().copied().filter(|v| (v - cur).abs() <= d).min_by_key(|v| (v - cur).abs());
-    if let Some(x) = best(r.left, &xs) {
-        r.left = x;
-        r.right = x + w;
-    }
-    if let Some(y) = best(r.top, &ys) {
-        r.top = y;
-        r.bottom = y + h;
-    }
+    RECT { left: x, top: y, right: x + w, bottom: y + h }
 }
 
 /// Schedules the next update. Slow widgets (>= 0.5 s) are lined up with the
@@ -1185,7 +1190,7 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) 
                 let (i, x, y) = locate(a, hwnd, sx, sy)?;
                 let s = a.widgets[i].scale;
                 let w = &a.widgets[i].w;
-                let on_element = w.element_at(x as f32 / s, y as f32 / s).is_some();
+                let on_element = w.clickable_at(x as f32 / s, y as f32 / s).is_some();
                 Some(if on_element || !w.cfg.draggable || a.locked { HTCLIENT } else { HTCAPTION })
             });
             hit.flatten().unwrap_or(HTCLIENT) as LRESULT
@@ -1197,7 +1202,7 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) 
                 let (i, x, y) = locate(a, hwnd, pt.x, pt.y)?;
                 let s = a.widgets[i].scale;
                 let w = &a.widgets[i].w;
-                let el = w.element_at(x as f32 / s, y as f32 / s)?;
+                let el = w.clickable_at(x as f32 / s, y as f32 / s)?;
                 Some(!w.cfg.elements[el].on_click.is_empty())
             });
             if hand.flatten().unwrap_or(false) {
@@ -1285,6 +1290,7 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) 
             let mut r = RECT { left: 0, top: 0, right: 0, bottom: 0 };
             GetWindowRect(hwnd, &mut r);
             with_app(|a| {
+                a.drag_offset = None;
                 if let Some(i) = a.index_of(hwnd) {
                     let name = a.widgets[i].w.cfg.name.clone();
                     a.state.positions.insert(name, [r.left, r.top]);
@@ -1294,9 +1300,19 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) 
             0
         }
         // Being dragged: snap to edges.
+        WM_ENTERSIZEMOVE => {
+            // Remember where the widget was grabbed, to follow the mouse exactly.
+            let (mut pt, mut r) = (POINT { x: 0, y: 0 }, RECT { left: 0, top: 0, right: 0, bottom: 0 });
+            GetCursorPos(&mut pt);
+            GetWindowRect(hwnd, &mut r);
+            with_app(|a| a.drag_offset = Some((pt.x - r.left, pt.y - r.top)));
+            0
+        }
         WM_MOVING => {
             let r = &mut *(lp as *mut RECT);
-            with_app(|a| snap(a, hwnd, r));
+            if let Some(new) = with_app(|a| drag_rect(a, hwnd, r)) {
+                *r = new;
+            }
             1
         }
         // Moved to a monitor with another scaling, or the scaling changed.
@@ -1381,6 +1397,7 @@ pub fn run(dir: PathBuf) {
             state,
             hidden: false,
             locked: tray::positions_locked(),
+            drag_offset: None,
             tray: (!tray_hwnd.is_null()).then(|| Tray::new(tray_hwnd)),
             watch: Vec::new(),
             desktop_shown: false,

@@ -397,6 +397,12 @@ pub struct Element {
 }
 
 impl Element {
+    /// Takes left/middle clicks: the widget can't be dragged from it.
+    /// (Scrolling, right-click and hover work while dragging too.)
+    pub fn clickable(&self) -> bool {
+        !(self.on_click.is_empty() && self.on_middle_click.is_empty())
+    }
+
     pub fn interactive(&self) -> bool {
         !(self.on_click.is_empty()
             && self.on_right_click.is_empty()

@@ -2,6 +2,11 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this project follows [Semantic Versioning](https://semver.org/).
 
+## [0.6.1] - 2026-11-18
+### Fixed
+- Dragging widgets: they always follow the mouse now. Snapping only considers the screen edges and neighbouring widgets, so a widget no longer gets stuck or moves along one axis only.
+- Widgets can be dragged from elements that only react to scrolling, right-click or hover (the calendar, news list, music cover...); only elements with a left/middle click action block dragging.
+
 ## [0.6.0] - 2026-11-18
 ### Added
 - **Plume Editor** (`plume-editor.exe`): edit widgets visually (fields, colors, elements, variables, data sources), turn widgets on/off, create and delete widgets, with auto-save. Comments in the files are kept. *Edit widgets...* in the tray menu opens it.

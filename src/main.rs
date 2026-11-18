@@ -16,6 +16,7 @@ mod ping;
 mod probe;
 mod render;
 mod script;
+mod snap;
 #[cfg(windows)]
 mod tray;
 mod update;

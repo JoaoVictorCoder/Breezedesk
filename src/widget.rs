@@ -303,6 +303,14 @@ impl Widget {
         }
     }
 
+    /// Topmost element taking left/middle clicks under a point.
+    pub fn clickable_at(&self, x: f32, y: f32) -> Option<usize> {
+        (0..self.cfg.elements.len()).rev().find(|&i| {
+            self.cfg.elements[i].clickable()
+                && self.states[i].bounds.is_some_and(|b| x >= b.left() && x < b.right() && y >= b.top() && y < b.bottom())
+        })
+    }
+
     /// Topmost interactive element under a point (widget coordinates).
     pub fn element_at(&self, x: f32, y: f32) -> Option<usize> {
         (0..self.cfg.elements.len()).rev().find(|&i| {
@@ -387,5 +395,45 @@ mod tests {
         w.set_var("base", "base+1", &m, &web).unwrap();
         w.update(&m, &web);
         assert_eq!(w.ctx(&m, &web).var("double").unwrap().to_string(), "22");
+    }
+}
+
+#[cfg(test)]
+mod drag_tests {
+    use super::*;
+
+    #[test]
+    fn scroll_only_elements_do_not_block_dragging() {
+        let cfg: WidgetConfig = toml::from_str(
+            r##"
+            name = "t"
+            width = 100
+            height = 100
+            [[element]]
+            type = "rect"
+            x = 0
+            y = 0
+            w = 100
+            h = 100
+            color = "#FFFFFF"
+            on_scroll_up = "!reload"
+            [[element]]
+            type = "rect"
+            x = 0
+            y = 0
+            w = 20
+            h = 20
+            color = "#FFFFFF"
+            on_click = "!reload"
+            "##,
+        )
+        .unwrap();
+        let m = Metrics::new();
+        let (mut w, _) = Widget::new(cfg, &m);
+        w.states[0].bounds = tiny_skia::Rect::from_xywh(0.0, 0.0, 100.0, 100.0);
+        w.states[1].bounds = tiny_skia::Rect::from_xywh(0.0, 0.0, 20.0, 20.0);
+        assert_eq!(w.clickable_at(50.0, 50.0), None); // drag works over the scroll area
+        assert_eq!(w.element_at(50.0, 50.0), Some(0)); // ...and scrolling still reaches it
+        assert_eq!(w.clickable_at(10.0, 10.0), Some(1)); // the button still clicks
     }
 }
