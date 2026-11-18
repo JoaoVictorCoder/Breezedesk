@@ -3,219 +3,274 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Plume — lightweight desktop widgets for Windows</title>
-  <meta name="description" content="Clocks, system monitors, music, weather and more on your Windows desktop. Free, open source and built in Rust to use as little CPU and memory as possible.">
-  <meta property="og:title" content="Plume — lightweight desktop widgets for Windows">
-  <meta property="og:description" content="Desktop widgets for Windows, light as a feather. Free and open source.">
+  <title>Plume — beautiful, lightweight desktop widgets for Windows</title>
+  <meta name="description" content="Clock, system monitor, music, weather, news and more on your Windows desktop. Free, open source and so light your PC barely notices it.">
+  <meta property="og:title" content="Plume — your desktop, alive">
+  <meta property="og:description" content="Beautiful desktop widgets for Windows that barely touch your PC. Free and open source.">
   <meta property="og:image" content="https://joaovictorcoder.github.io/Plume/img/preview.png">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
+  <meta name="theme-color" content="#0a0c14">
   <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header class="nav">
-    <a class="brand" href="#top"><img src="img/logo.png" alt="" width="28" height="28">Plume</a>
-    <nav>
-      <a href="#features">Features</a>
-      <a href="#widgets">Widgets</a>
-      <a href="#create">Create</a>
-      <a href="#faq">FAQ</a>
-      <a href="https://github.com/JoaoVictorCoder/Plume" class="gh">GitHub</a>
+  <header class="nav" id="nav">
+    <a class="brand" href="#top"><img src="img/logo.png" alt="" width="30" height="30"><span>Plume</span></a>
+    <nav class="links">
+      <a href="#why" data-i18n="nav.why">Why Plume</a>
+      <a href="#showcase" data-i18n="nav.widgets">Widgets</a>
+      <a href="#try" data-i18n="nav.try">Try it</a>
+      <a href="#faq" data-i18n="nav.faq">FAQ</a>
     </nav>
+    <div class="nav-right">
+      <div class="lang" role="group" aria-label="Language">
+        <button type="button" data-lang="en">EN</button>
+        <button type="button" data-lang="pt">PT</button>
+      </div>
+      <a class="gh" href="https://github.com/JoaoVictorCoder/Plume" aria-label="GitHub">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 .5a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1.1-.8.1-.8.1-.8 1.2.1 1.9 1.3 1.9 1.3 1.1 1.9 2.9 1.3 3.6 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-6 0-1.3.5-2.4 1.3-3.2-.2-.3-.6-1.6.1-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17.3 4.6 18.3 5 18.3 5c.7 1.6.3 2.9.1 3.2.8.8 1.3 1.9 1.3 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .5Z"/></svg>
+      </a>
+      <a class="btn small primary" href="https://github.com/JoaoVictorCoder/Plume/releases/latest/download/Plume-Setup.exe" data-i18n="cta.short">Download</a>
+    </div>
   </header>
 
   <main id="top">
+    <!-- HERO -->
     <section class="hero">
-      <div class="hero-text">
-        <p class="eyebrow">Free · Open source · Windows 10 &amp; 11</p>
-        <h1>Desktop widgets,<br><span class="grad">light as a feather.</span></h1>
-        <p class="lead">Clocks, system monitors, music, weather, news and more on your desktop. Plume is written in Rust and draws each widget in under half a millisecond, so your PC barely notices it.</p>
+      <div class="hero-copy">
+        <p class="pill"><span class="dot"></span><span data-i18n="hero.pill">Free &amp; open source · Windows 10 and 11</span></p>
+        <h1><span data-i18n="hero.h1a">Your desktop,</span><br><span class="grad" data-i18n="hero.h1b">alive.</span></h1>
+        <p class="lead" data-i18n="hero.lead">Beautiful widgets for Windows that barely touch your PC. Clock, system stats, music, weather, news and more, ready in one click and free forever.</p>
         <div class="cta">
-          <a class="btn primary" href="https://github.com/JoaoVictorCoder/Plume/releases/latest/download/Plume-Setup.exe">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0-5-5m5 5 5-5M4 19h16" /></svg>
-            Download for Windows
+          <a class="btn primary big" href="https://github.com/JoaoVictorCoder/Plume/releases/latest/download/Plume-Setup.exe">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0-5-5m5 5 5-5M4 19h16"/></svg>
+            <span data-i18n="cta.download">Download for Windows</span>
           </a>
-          <a class="btn" href="https://github.com/JoaoVictorCoder/Plume/releases/latest">Portable zip &amp; notes</a>
+          <a class="btn ghost big" href="#why" data-i18n="cta.why">Why Plume?</a>
         </div>
-        <p class="meta"><span id="version">Latest release</span> · installs without admin rights · updates itself</p>
-      </div>
-      <div class="hero-shot">
-        <img src="img/preview.png" alt="Plume widgets on a desktop: clocks, system monitor, gauges, music player, weather, news, calendar and top processes" width="1440" height="700">
-      </div>
-    </section>
-
-    <section class="stats">
-      <div><strong>&lt; 0.5 ms</strong><span>to draw a widget</span></div>
-      <div><strong>~3.5 MB</strong><span>program size</span></div>
-      <div><strong>Native</strong><span>no browser engine, no .NET</span></div>
-      <div><strong>MIT</strong><span>free, open source</span></div>
-    </section>
-
-    <section id="features" class="section">
-      <h2>Everything a desktop needs</h2>
-      <p class="sub">Plume only measures what your widgets actually show. No GPU widget? The GPU is never queried.</p>
-      <div class="grid">
-        <article class="card">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4" /></svg>
-          <h3>System monitor</h3>
-          <p>CPU (total and per core), RAM, GPU and VRAM, disks, network, battery, top processes, ping and temperatures.</p>
-        </article>
-        <article class="card">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l12-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm12-2a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" /></svg>
-          <h3>Now playing</h3>
-          <p>Title, artist and cover from Spotify, browsers and players, with media buttons and a live audio visualizer.</p>
-        </article>
-        <article class="card">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c3 3.5 3 14.5 0 18M12 3c-3 3.5-3 14.5 0 18" /></svg>
-          <h3>Weather &amp; news</h3>
-          <p>Read any JSON API or RSS/Atom feed. Downloads use Windows' own networking, nothing extra bundled.</p>
-        </article>
-        <article class="card">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4ZM14 6l4 4" /></svg>
-          <h3>Visual editor</h3>
-          <p>Change colors, texts, sizes and positions in Plume Editor and watch the widget update on your desktop.</p>
-        </article>
-        <article class="card">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 7-5 5 5 5M16 7l5 5-5 5M14 4l-4 16" /></svg>
-          <h3>Expressions &amp; LuaJIT</h3>
-          <p>Math, conditions and dynamic colors in any field. For the rest, sandboxed LuaJIT scripts.</p>
-        </article>
-        <article class="card">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 15l6 6M10 17a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z" /></svg>
-          <h3>Sharp everywhere</h3>
-          <p>Follows each monitor's scaling (125%, 150%, 4K), snaps to edges and brings back widgets from unplugged screens.</p>
-        </article>
-        <article class="card">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5L20 7" /></svg>
-          <h3>Click actions</h3>
-          <p>Open apps, sites and folders, control music and volume, switch pages: on click, right-click or scroll.</p>
-        </article>
-        <article class="card">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 8 12 3 3 8v8l9 5 9-5V8ZM3 8l9 5 9-5M12 13v8" /></svg>
-          <h3>Widget packages</h3>
-          <p>Share a widget as a single <code>.plume</code> file. Double-click to install, with a safety check first.</p>
-        </article>
-        <article class="card">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5" /></svg>
-          <h3>Updates itself</h3>
-          <p>New versions are downloaded, checked against their SHA-256 and installed silently. You can turn it off.</p>
-        </article>
-      </div>
-    </section>
-
-    <section id="widgets" class="section">
-      <h2>Ready-made widgets</h2>
-      <p class="sub">Ten examples come with Plume. Turn them on and off from the tray icon, or use them as a starting point.</p>
-      <div class="gallery">
-        <figure><img src="img/clock.png" alt="Digital clock widget" loading="lazy"><figcaption>Clock</figcaption></figure>
-        <figure><img src="img/analog-clock.png" alt="Analog clock widget" loading="lazy"><figcaption>Analog clock</figcaption></figure>
-        <figure><img src="img/system.png" alt="System monitor widget with CPU graph, RAM, GPU and disk bars" loading="lazy"><figcaption>System</figcaption></figure>
-        <figure><img src="img/gauges.png" alt="Circular gauges for CPU, RAM, GPU and disk" loading="lazy"><figcaption>Gauges</figcaption></figure>
-        <figure><img src="img/media.png" alt="Now playing widget with buttons and audio visualizer" loading="lazy"><figcaption>Music</figcaption></figure>
-        <figure><img src="img/processes.png" alt="Top processes widget with per-core CPU bars" loading="lazy"><figcaption>Processes</figcaption></figure>
-        <figure><img src="img/weather.png" alt="Weather widget" loading="lazy"><figcaption>Weather</figcaption></figure>
-        <figure><img src="img/calendar.png" alt="Month calendar widget" loading="lazy"><figcaption>Calendar</figcaption></figure>
-        <figure><img src="img/news.png" alt="RSS news widget" loading="lazy"><figcaption>News</figcaption></figure>
-        <figure><img src="img/launcher.png" alt="App launcher widget" loading="lazy"><figcaption>Launcher</figcaption></figure>
-      </div>
-    </section>
-
-    <section id="create" class="section split">
-      <div>
-        <h2>Make your own</h2>
-        <p class="sub left">Use the visual editor, or write a small text file. Plume reloads a widget the moment you save it.</p>
-        <ul class="checks">
-          <li>Text, bars, graphs, rings, images, calendar, visualizer</li>
-          <li><code>{cpu &gt; 80 ? 'HOT' : 'ok'}</code> in any text or color</li>
-          <li>Hover effects, animations, blur and acrylic</li>
-          <li>Dates in your language, automatically</li>
+        <ul class="trust">
+          <li data-i18n="trust.admin">No admin rights</li>
+          <li data-i18n="trust.updates">Updates itself</li>
+          <li data-i18n="trust.ads">No ads, no tracking</li>
         </ul>
-        <a class="btn" href="https://github.com/JoaoVictorCoder/Plume#widget-format-widgetstoml">Read the widget guide</a>
+        <p class="version"><span id="version"></span></p>
       </div>
-      <div class="code-col">
-<pre class="code"><code><span class="c"># widgets/cpu.toml</span>
-<span class="k">name</span> = <span class="s">"cpu"</span>
-<span class="k">width</span> = <span class="n">220</span>
-<span class="k">height</span> = <span class="n">80</span>
 
-[<span class="t">background</span>]
-<span class="k">color</span> = <span class="s">"#10121A90"</span>
-<span class="k">radius</span> = <span class="n">14</span>
-<span class="k">blur</span> = <span class="s">"acrylic"</span>
-
-[[<span class="t">element</span>]]
-<span class="k">type</span> = <span class="s">"text"</span>
-<span class="k">x</span> = <span class="n">16</span>
-<span class="k">y</span> = <span class="n">12</span>
-<span class="k">size</span> = <span class="n">28</span>
-<span class="k">text</span> = <span class="s">"CPU {cpu}%"</span>
-<span class="k">color</span> = <span class="s">"cpu &gt; 80 ? '#FF453A' : '#FFFFFF'"</span></code></pre>
+      <div class="desk-wrap" aria-label="Example desktop with Plume widgets">
+        <div class="desk" id="desk">
+          <div class="w live-clock float f1" style="--x:3%; --y:5%; --w:30%">
+            <div class="lc-time" id="lc-time">12:00</div>
+            <div class="lc-date" id="lc-date">Monday</div>
+          </div>
+          <div class="w live-cpu float f2" style="--x:3%; --y:39%; --w:30%">
+            <div class="lcpu-head"><span>CPU</span><span id="lcpu-val">12%</span></div>
+            <canvas id="lcpu" width="300" height="90"></canvas>
+            <div class="lcpu-row"><span>RAM</span><span>7.4 / 16 GB</span></div>
+            <div class="bar"><i style="width:46%"></i></div>
+          </div>
+          <img class="w float f3" src="img/analog-clock.png" alt="" style="--x:36%; --y:5%; --w:19%">
+          <img class="w float f4" src="img/media.png" alt="" style="--x:58%; --y:5%; --w:38%">
+          <img class="w float f5" src="img/gauges.png" alt="" style="--x:36%; --y:44%; --w:30%">
+          <img class="w float f6" src="img/weather.png" alt="" style="--x:69%; --y:38%; --w:27%">
+          <img class="w float f1" src="img/launcher.png" alt="" style="--x:36%; --y:72%; --w:33%">
+          <div class="taskbar"><span></span><span></span><span class="on"></span><span></span><span></span><b id="tb-clock">12:00</b></div>
+        </div>
       </div>
     </section>
+
+    <!-- STATS -->
+    <section class="stats">
+      <div><strong>&lt; 0.5 ms</strong><span data-i18n="stats.draw">to draw a widget</span></div>
+      <div><strong>~3.5 MB</strong><span data-i18n="stats.size">the whole program</span></div>
+      <div><strong>10</strong><span data-i18n="stats.ready">widgets ready to use</span></div>
+      <div><strong>0</strong><span data-i18n="stats.ads">ads, accounts or tracking</span></div>
+    </section>
+
+    <!-- WHY -->
+    <section id="why" class="section">
+      <p class="kicker" data-i18n="why.kicker">Why people switch to Plume</p>
+      <h2 data-i18n="why.title">Four reasons to put it on your desktop</h2>
+      <div class="reasons">
+        <article class="reason">
+          <div class="r-icon blue"><svg viewBox="0 0 24 24"><path d="M20 4C10 4 5 10 5 19M5 19c5-1 9-4 11-9M9 15l-5 5"/></svg></div>
+          <h3 data-i18n="why.light.t">Light as a feather</h3>
+          <p data-i18n="why.light.p">Your games and apps keep the computer to themselves. Plume draws a widget in under half a millisecond and then sleeps until the next second.</p>
+          <ul>
+            <li data-i18n="why.light.1">Native app written in Rust: no browser engine, no .NET</li>
+            <li data-i18n="why.light.2">Sensors you don't show are never read</li>
+            <li data-i18n="why.light.3">Hidden widgets and unchanged frames cost nothing</li>
+          </ul>
+        </article>
+        <article class="reason">
+          <div class="r-icon violet"><svg viewBox="0 0 24 24"><path d="M12 3l2.5 5.5L20 11l-5.5 2.5L12 19l-2.5-5.5L4 11l5.5-2.5Z"/></svg></div>
+          <h3 data-i18n="why.pretty.t">Beautiful from the first minute</h3>
+          <p data-i18n="why.pretty.p">Ten polished widgets come in the box. Turn them on from the tray icon and you're done.</p>
+          <ul>
+            <li data-i18n="why.pretty.1">Glass (acrylic) and blur backgrounds, smooth animations</li>
+            <li data-i18n="why.pretty.2">Sharp on 4K screens and 125%/150% scaling</li>
+            <li data-i18n="why.pretty.3">Dates in your language, automatically</li>
+          </ul>
+        </article>
+        <article class="reason">
+          <div class="r-icon pink"><svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16v4ZM14 6l4 4"/></svg></div>
+          <h3 data-i18n="why.easy.t">Make it yours, no code needed</h3>
+          <p data-i18n="why.easy.p">Change colors, texts and sizes in Plume Editor and watch your desktop update as you drag the values.</p>
+          <ul>
+            <li data-i18n="why.easy.1">Visual editor with color pickers and live preview</li>
+            <li data-i18n="why.easy.2">Share widgets as one .plume file, install with a double-click</li>
+            <li data-i18n="why.easy.3">Power users get formulas and LuaJIT scripts</li>
+          </ul>
+        </article>
+        <article class="reason">
+          <div class="r-icon green"><svg viewBox="0 0 24 24"><path d="M12 3 5 6v6c0 4.5 3 8 7 9 4-1 7-4.5 7-9V6l-7-3Z"/><path d="m9 12 2 2 4-4"/></svg></div>
+          <h3 data-i18n="why.safe.t">Safe, private and yours</h3>
+          <p data-i18n="why.safe.p">No account, no ads, no data collection. The code is open for anyone to read.</p>
+          <ul>
+            <li data-i18n="why.safe.1">Open source under the MIT license</li>
+            <li data-i18n="why.safe.2">Updates are verified (SHA-256) before installing</li>
+            <li data-i18n="why.safe.3">Widget scripts run in a sandbox, without file access</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <!-- SHOWCASE -->
+    <section id="showcase" class="section showcase">
+      <p class="kicker" data-i18n="show.kicker">What you can put on your desktop</p>
+      <h2 data-i18n="show.title">Everything at a glance, nothing in the way</h2>
+
+      <div class="row">
+        <div class="row-text">
+          <h3 data-i18n="show.sys.t">Know what your PC is doing</h3>
+          <p data-i18n="show.sys.p">CPU (total and per core), RAM, GPU and video memory, disks, network, battery, temperatures and the programs using the most. Colors change when something gets hot.</p>
+        </div>
+        <div class="row-media stack">
+          <img src="img/system.png" alt="System monitor widget" loading="lazy">
+          <img src="img/processes.png" alt="Top processes widget" loading="lazy">
+        </div>
+      </div>
+
+      <div class="row reverse">
+        <div class="row-text">
+          <h3 data-i18n="show.music.t">Your music, on your desktop</h3>
+          <p data-i18n="show.music.p">See what's playing in Spotify, your browser or any player, with the album cover, buttons and a visualizer that dances to the sound.</p>
+        </div>
+        <div class="row-media">
+          <img src="img/media.png" alt="Now playing widget" loading="lazy">
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="row-text">
+          <h3 data-i18n="show.info.t">Weather, news and your calendar</h3>
+          <p data-i18n="show.info.p">Live weather for your city, headlines from any news feed, and a calendar in your own language. Click a headline to read it.</p>
+        </div>
+        <div class="row-media grid2">
+          <img src="img/weather.png" alt="Weather widget" loading="lazy">
+          <img src="img/calendar.png" alt="Calendar widget" loading="lazy">
+          <img class="span2" src="img/news.png" alt="News widget" loading="lazy">
+        </div>
+      </div>
+
+      <div class="row reverse">
+        <div class="row-text">
+          <h3 data-i18n="show.editor.t">An editor made for humans</h3>
+          <p data-i18n="show.editor.p">Turn widgets on and off, pick colors, drag numbers. With auto-save on, every change appears on your desktop instantly.</p>
+        </div>
+        <div class="row-media">
+          <img class="shadow" src="img/editor.png" alt="Plume Editor" loading="lazy">
+        </div>
+      </div>
+    </section>
+
+    <!-- PLAYGROUND -->
+    <section id="try" class="section">
+      <p class="kicker" data-i18n="try.kicker">Try it right here</p>
+      <h2 data-i18n="try.title">Make it yours in seconds</h2>
+      <p class="sub" data-i18n="try.sub">This is what customizing a widget feels like. In Plume you do the same in the editor, or in a few lines of text.</p>
+      <div class="playground">
+        <div class="pg-controls">
+          <label><span data-i18n="try.label">Label</span>
+            <input id="pg-label" type="text" value="CPU" maxlength="14">
+          </label>
+          <div><span data-i18n="try.accent">Accent color</span>
+            <div class="swatches" id="pg-swatches">
+              <button type="button" style="--c:#5AC8FA" data-c="#5AC8FA" aria-label="Blue" class="on"></button>
+              <button type="button" style="--c:#A78BFA" data-c="#A78BFA" aria-label="Violet"></button>
+              <button type="button" style="--c:#F472B6" data-c="#F472B6" aria-label="Pink"></button>
+              <button type="button" style="--c:#30D158" data-c="#30D158" aria-label="Green"></button>
+              <button type="button" style="--c:#FF9F0A" data-c="#FF9F0A" aria-label="Orange"></button>
+            </div>
+          </div>
+          <div class="range">
+            <div class="range-head"><span data-i18n="try.load">Simulate CPU load</span><output id="pg-load-out">42%</output></div>
+            <input id="pg-load" type="range" min="0" max="100" value="42" aria-label="CPU load">
+            <p class="pg-hint" data-i18n="try.hint">Drag above 80% to see the color change.</p>
+          </div>
+          <div class="toggles">
+            <label class="switch"><input id="pg-glass" type="checkbox" checked><i></i><span data-i18n="try.glass">Glass background</span></label>
+            <label class="switch"><input id="pg-ring" type="checkbox" checked><i></i><span data-i18n="try.ring">Show a ring</span></label>
+            <label class="switch"><input id="pg-hot" type="checkbox" checked><i></i><span data-i18n="try.hot">Red when above 80%</span></label>
+          </div>
+        </div>
+        <div class="pg-stage">
+          <div class="pg-widget" id="pg-widget">
+            <svg class="pg-ring" id="pg-ringsvg" viewBox="0 0 64 64"><circle cx="32" cy="32" r="26" class="track"/><circle cx="32" cy="32" r="26" class="val" id="pg-arc"/></svg>
+            <div>
+              <div class="pg-title" id="pg-title">CPU</div>
+              <div class="pg-value" id="pg-value">42%</div>
+            </div>
+          </div>
+          <pre class="code" id="pg-code"></pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- STEPS -->
     <section class="section">
-      <figure class="editor-shot">
-        <img src="img/editor.png" alt="Plume Editor: list of widgets and their settings" loading="lazy" width="1000" height="700">
-        <figcaption>Plume Editor: turn widgets on and off, pick colors, drag values and see the result on your desktop.</figcaption>
-      </figure>
+      <h2 data-i18n="steps.title">Up and running in one minute</h2>
+      <ol class="steps">
+        <li><b>1</b><h3 data-i18n="steps.1.t">Download</h3><p data-i18n="steps.1.p">Run the installer. No admin rights, no account.</p></li>
+        <li><b>2</b><h3 data-i18n="steps.2.t">Pick your widgets</h3><p data-i18n="steps.2.p">Right-click the feather in the tray and turn widgets on or off.</p></li>
+        <li><b>3</b><h3 data-i18n="steps.3.t">Make them yours</h3><p data-i18n="steps.3.p">Drag them anywhere. Open the editor to change colors and texts.</p></li>
+      </ol>
     </section>
 
-    <section class="section light">
-      <h2>Why it stays light</h2>
-      <div class="why">
-        <p><strong>Native, no runtime.</strong> Talks to Windows directly. No browser engine, no .NET, no Electron.</p>
-        <p><strong>Draws only what changed.</strong> Identical frames are skipped, and hidden widgets cost nothing.</p>
-        <p><strong>Measures on demand.</strong> Sensors, audio and downloads start only when a widget needs them.</p>
-        <p><strong>One sample for all.</strong> System data is read once per second in the background and shared.</p>
-      </div>
-    </section>
-
+    <!-- FAQ -->
     <section id="faq" class="section faq">
-      <h2>Questions</h2>
-      <details>
-        <summary>Windows says the download is unsafe. Is it?</summary>
-        <p>Plume is new and not digitally signed yet, so SmartScreen shows a warning (click <em>More info → Run anyway</em>), and some antivirus programs may flag it by mistake with names ending in <code>!ml</code>, which means a machine-learning guess, not a known virus. The full source code is public on GitHub, and every release is built by GitHub Actions from that code.</p>
-      </details>
-      <details>
-        <summary>Does it need administrator rights?</summary>
-        <p>No. It installs for your user only, in <code>%LOCALAPPDATA%\Programs\Plume</code>, and runs as a normal program.</p>
-      </details>
-      <details>
-        <summary>Where are my widgets? Will updates change them?</summary>
-        <p>In <code>%APPDATA%\Plume\widgets</code> (tray menu → <em>Open widgets folder</em>). Updates never touch them, and the uninstaller asks before deleting them.</p>
-      </details>
-      <details>
-        <summary>Can I use Rainmeter skins?</summary>
-        <p>Not directly: Plume has its own, simpler format. Most skins are easy to rebuild with the editor or a short TOML file.</p>
-      </details>
-      <details>
-        <summary>The CPU temperature doesn't show up.</summary>
-        <p>Many PCs don't report it to Windows. Run <a href="https://github.com/LibreHardwareMonitor/LibreHardwareMonitor">LibreHardwareMonitor</a> and Plume reads CPU and GPU temperatures (any brand) from it.</p>
-      </details>
-      <details>
-        <summary>How do I remove it?</summary>
-        <p>Windows Settings → Apps → Installed apps → Plume → Uninstall.</p>
-      </details>
+      <h2 data-i18n="faq.title">Questions</h2>
+      <details><summary data-i18n="faq.1.q">Is it really free?</summary><p data-i18n="faq.1.a">Yes. Plume is open source under the MIT license: no ads, no premium version, no account.</p></details>
+      <details><summary data-i18n="faq.2.q">Windows says the download is unsafe. Is it?</summary><p data-i18n="faq.2.a">Plume is new and not digitally signed yet, so SmartScreen shows a warning (click <em>More info → Run anyway</em>), and some antivirus programs may flag it by mistake with names ending in <code>!ml</code>, a machine-learning guess, not a known virus. All the code is public, and every release is built automatically by GitHub from that code.</p></details>
+      <details><summary data-i18n="faq.3.q">Will it slow down my games?</summary><p data-i18n="faq.3.a">It is built not to. Plume only wakes up when a widget needs updating (usually once per second), draws in under half a millisecond and only reads the sensors your widgets show. You can also hide all widgets with one click on the tray icon.</p></details>
+      <details><summary data-i18n="faq.4.q">Does it send my data anywhere?</summary><p data-i18n="faq.4.a">No. Plume has no telemetry. It only goes online to check for updates on GitHub and to fetch what your widgets show (like weather or news).</p></details>
+      <details><summary data-i18n="faq.5.q">Can I use Rainmeter skins?</summary><p data-i18n="faq.5.a">Not directly: Plume has its own, simpler format. Most skins are quick to rebuild with the editor or a short text file.</p></details>
+      <details><summary data-i18n="faq.6.q">How do I remove it?</summary><p data-i18n="faq.6.a">Windows Settings → Apps → Installed apps → Plume → Uninstall. It asks before deleting your widgets.</p></details>
     </section>
 
+    <!-- FINAL -->
     <section class="final">
-      <img src="img/logo.png" alt="" width="64" height="64">
-      <h2>Give your desktop a feather.</h2>
-      <a class="btn primary" href="https://github.com/JoaoVictorCoder/Plume/releases/latest/download/Plume-Setup.exe">Download for Windows</a>
+      <div class="final-card">
+        <img src="img/logo.png" alt="" width="72" height="72">
+        <h2 data-i18n="final.title">Give your desktop a feather.</h2>
+        <p data-i18n="final.sub">Free, open source and ready in a minute.</p>
+        <a class="btn primary big" href="https://github.com/JoaoVictorCoder/Plume/releases/latest/download/Plume-Setup.exe">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0-5-5m5 5 5-5M4 19h16"/></svg>
+          <span data-i18n="cta.download">Download for Windows</span>
+        </a>
+        <p class="alt"><a href="https://github.com/JoaoVictorCoder/Plume/releases/latest" data-i18n="final.portable">Portable version and release notes</a></p>
+      </div>
     </section>
   </main>
 
   <footer>
-    <span>Plume · MIT License · made by <a href="https://github.com/JoaoVictorCoder">JoaoVictorCoder</a></span>
-    <span><a href="https://github.com/JoaoVictorCoder/Plume">Source</a> · <a href="https://github.com/JoaoVictorCoder/Plume/releases">Releases</a> · <a href="https://github.com/JoaoVictorCoder/Plume/blob/main/CHANGELOG.md">Changelog</a></span>
+    <span><img src="img/logo.png" alt="" width="18" height="18"> Plume · <span data-i18n="footer.mit">MIT License</span> · <span data-i18n="footer.by">made by</span> <a href="https://github.com/JoaoVictorCoder">JoaoVictorCoder</a></span>
+    <span><a href="https://github.com/JoaoVictorCoder/Plume" data-i18n="footer.source">Source code</a> · <a href="https://github.com/JoaoVictorCoder/Plume/releases" data-i18n="footer.releases">Releases</a> · <a href="https://github.com/JoaoVictorCoder/Plume/blob/main/CHANGELOG.md" data-i18n="footer.changes">What's new</a> · <a href="https://github.com/JoaoVictorCoder/Plume#widget-format-widgetstoml" data-i18n="footer.docs">Widget guide</a></span>
   </footer>
 
-  <script>
-    // Shows the latest version next to the download button.
-    fetch("https://api.github.com/repos/JoaoVictorCoder/Plume/releases/latest")
-      .then(r => r.ok ? r.json() : null)
-      .then(r => { if (r && r.tag_name) document.getElementById("version").textContent = "Version " + r.tag_name.replace(/^v/, ""); })
-      .catch(() => {});
-  </script>
+  <script src="app.js"></script>
 </body>
 </html>
