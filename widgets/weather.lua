@@ -26,14 +26,14 @@ local codes = {
 }
 
 function update()
-  local code = plume.get("weather.current.weather_code")
+  local code = breezedesk.get("weather.current.weather_code")
   if code == nil then
     return { desc = "", icon = "" }
   end
   local c = codes[code] or { "Unknown", "?" }
   local icon = c[2]
   -- Moon instead of sun at night
-  if icon == "☀" and plume.get("weather.current.is_day") == 0 then
+  if icon == "☀" and breezedesk.get("weather.current.is_day") == 0 then
     icon = "☾"
   end
   return { desc = c[1], icon = icon }

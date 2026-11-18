@@ -34,8 +34,8 @@ fn exe_dir() -> PathBuf {
         .unwrap_or_else(|| PathBuf::from("."))
 }
 
-/// Command line: `plume [widgets-folder] [--preview] [--install-package file.plume]`.
-/// A `.plume` file given alone (double-click, drag onto the exe) is installed.
+/// Command line: `breezedesk [widgets-folder] [--preview] [--install-package file.breeze]`.
+/// A `.breeze` file given alone (double-click, drag onto the exe) is installed.
 struct Args {
     dir: Option<PathBuf>,
     preview: bool,
@@ -50,7 +50,7 @@ fn args() -> Args {
             "--preview" => a.preview = true,
             "--install-package" => a.package = it.next().map(PathBuf::from),
             _ if arg.starts_with("--") => {}
-            _ if Path::new(&arg).extension().is_some_and(|e| e.eq_ignore_ascii_case(package::EXT)) => {
+            _ if package::is_package(Path::new(&arg)) => {
                 a.package = Some(PathBuf::from(arg));
             }
             _ => a.dir = Some(PathBuf::from(arg)),
@@ -62,7 +62,7 @@ fn args() -> Args {
 /// Widgets folder:
 /// 1. the folder given on the command line;
 /// 2. `widgets\` next to the executable, if it exists (portable copy, zip);
-/// 3. `%APPDATA%\Plume\widgets` (installed copy; survives updates).
+/// 3. `%APPDATA%\Breezedesk\widgets` (installed copy; survives updates).
 fn widgets_dir(arg: Option<PathBuf>) -> PathBuf {
     if let Some(dir) = arg {
         return dir;
@@ -71,9 +71,13 @@ fn widgets_dir(arg: Option<PathBuf>) -> PathBuf {
     if portable.exists() {
         return portable;
     }
-    let dir = std::env::var_os("APPDATA")
-        .map(|p| PathBuf::from(p).join("Plume").join("widgets"))
-        .unwrap_or(portable);
+    let Some(appdata) = std::env::var_os("APPDATA").map(PathBuf::from) else { return portable };
+    let dir = appdata.join("Breezedesk").join("widgets");
+    // The project used to be called Plume: bring its widgets and settings over.
+    let old = appdata.join("Plume");
+    if !dir.exists() && old.join("widgets").exists() && !appdata.join("Breezedesk").exists() {
+        let _ = std::fs::rename(&old, appdata.join("Breezedesk"));
+    }
     if !dir.exists() {
         // First run: write the examples.
         install_examples(&dir);
@@ -99,7 +103,7 @@ pub fn install_examples(dir: &Path) -> usize {
     n
 }
 
-/// `plume --preview [folder]` renders each widget to a PNG (works on any OS).
+/// `breezedesk --preview [folder]` renders each widget to a PNG (works on any OS).
 fn preview(dir: &Path) {
     let (cfgs, errors) = config::load_dir(dir);
     for e in errors {
@@ -120,7 +124,7 @@ fn preview(dir: &Path) {
             web.fetch_now(&job);
         }
     }
-    let secs: u32 = std::env::var("PLUME_PREVIEW_SECS").ok().and_then(|s| s.parse().ok()).unwrap_or(5);
+    let secs: u32 = std::env::var("BREEZEDESK_PREVIEW_SECS").ok().and_then(|s| s.parse().ok()).unwrap_or(5);
     m.refresh();
     for _ in 0..secs {
         std::thread::sleep(std::time::Duration::from_millis(950));
@@ -131,7 +135,7 @@ fn preview(dir: &Path) {
     }
     let (mut fonts, mut images) = (render::Fonts::default(), render::Images::default());
     for mut w in widgets {
-        let scale: f32 = std::env::var("PLUME_SCALE").ok().and_then(|s| s.parse().ok()).unwrap_or(1.0) * w.cfg.scale;
+        let scale: f32 = std::env::var("BREEZEDESK_SCALE").ok().and_then(|s| s.parse().ok()).unwrap_or(1.0) * w.cfg.scale;
         let (pw, ph) = ((w.cfg.width as f32 * scale).round() as u32, (w.cfg.height as f32 * scale).round() as u32);
         let Some(mut pm) = tiny_skia::Pixmap::new(pw.max(1), ph.max(1)) else { continue };
         render::render(&mut w, &mut pm, &m, &web, &mut fonts, &mut images, scale, render::Layer::All);
@@ -141,7 +145,7 @@ fn preview(dir: &Path) {
     }
 }
 
-/// Installs a `.plume` package after asking. Returns true if Plume should
+/// Installs a `.breeze` package after asking. Returns true if Breezedesk should
 /// start afterwards (it was not running yet).
 fn install_package(file: &Path, dir: &Path) -> bool {
     let pkg = match package::Package::open(file) {
@@ -163,7 +167,7 @@ fn install_package(file: &Path, dir: &Path) -> bool {
         return false;
     }
     match pkg.install(dir) {
-        Ok(_) => !plume_running(),
+        Ok(_) => !breezedesk_running(),
         Err(e) => {
             message(&format!("Installation failed:\n\n{e}"), false);
             false
@@ -176,7 +180,7 @@ fn install_package(file: &Path, dir: &Path) -> bool {
 fn message(text: &str, ask: bool) -> bool {
     use windows_sys::Win32::UI::WindowsAndMessaging::*;
     let w = |s: &str| s.encode_utf16().chain(std::iter::once(0)).collect::<Vec<u16>>();
-    let (t, c) = (w(text), w("Plume"));
+    let (t, c) = (w(text), w("Breezedesk"));
     let flags = if ask { MB_YESNO | MB_ICONQUESTION } else { MB_OK | MB_ICONWARNING };
     unsafe { MessageBoxW(std::ptr::null_mut(), t.as_ptr(), c.as_ptr(), flags) == IDYES }
 }
@@ -187,17 +191,17 @@ fn message(text: &str, ask: bool) -> bool {
     ask
 }
 
-/// True if Plume is already running (it will reload the widgets by itself).
+/// True if Breezedesk is already running (it will reload the widgets by itself).
 #[cfg(windows)]
-fn plume_running() -> bool {
+fn breezedesk_running() -> bool {
     use windows_sys::Win32::UI::WindowsAndMessaging::FindWindowW;
     let w = |s: &str| s.encode_utf16().chain(std::iter::once(0)).collect::<Vec<u16>>();
-    let (class, title) = (w("PlumeWidget"), w("PlumeTray"));
+    let (class, title) = (w("BreezedeskWidget"), w("BreezedeskTray"));
     !unsafe { FindWindowW(class.as_ptr(), title.as_ptr()) }.is_null()
 }
 
 #[cfg(not(windows))]
-fn plume_running() -> bool {
+fn breezedesk_running() -> bool {
     true
 }
 

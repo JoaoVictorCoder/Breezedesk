@@ -1,9 +1,9 @@
 [package]
-name = "plume-editor"
-version = "0.6.0"
+name = "breezedesk-editor"
+version = "0.7.0"
 edition = "2021"
 license = "MIT"
-description = "Visual editor for Plume widgets"
+description = "Visual editor for Breezedesk widgets"
 build = "build.rs"
 
 [dependencies]

@@ -1,16 +1,16 @@
-// Plume website: translations (EN/PT), live demo widgets, playground.
+// Breezedesk website: translations (EN/PT), live demo widgets, playground.
 (() => {
   "use strict";
 
   // ------------------------------------------------------------ translations
   const PT = {
-    "nav.why": "Por que o Plume",
+    "nav.why": "Por que o Breezedesk",
     "nav.widgets": "Widgets",
     "nav.try": "Experimente",
     "nav.faq": "Dúvidas",
     "cta.short": "Baixar",
     "cta.download": "Baixar para Windows",
-    "cta.why": "Por que o Plume?",
+    "cta.why": "Por que o Breezedesk?",
     "hero.pill": "Grátis e open source · Windows 10 e 11",
     "hero.h1a": "Sua área de trabalho,",
     "hero.h1b": "viva.",
@@ -22,10 +22,10 @@
     "stats.size": "o programa inteiro",
     "stats.ready": "widgets prontos para usar",
     "stats.ads": "anúncios, contas ou rastreamento",
-    "why.kicker": "Por que as pessoas usam o Plume",
+    "why.kicker": "Por que as pessoas usam o Breezedesk",
     "why.title": "Quatro motivos para colocar na sua área de trabalho",
     "why.light.t": "Leve como uma pena",
-    "why.light.p": "Seus jogos e programas continuam com o computador só para eles. O Plume desenha um widget em menos de meio milissegundo e dorme até o próximo segundo.",
+    "why.light.p": "Seus jogos e programas continuam com o computador só para eles. O Breezedesk desenha um widget em menos de meio milissegundo e dorme até o próximo segundo.",
     "why.light.1": "Programa nativo feito em Rust: sem navegador embutido, sem .NET",
     "why.light.2": "Sensores que você não mostra nunca são lidos",
     "why.light.3": "Widgets escondidos e telas que não mudaram não custam nada",
@@ -35,9 +35,9 @@
     "why.pretty.2": "Nítido em telas 4K e com escala de 125%/150%",
     "why.pretty.3": "Datas no seu idioma, automaticamente",
     "why.easy.t": "Do seu jeito, sem programar",
-    "why.easy.p": "Mude cores, textos e tamanhos no Plume Editor e veja a área de trabalho mudar enquanto você arrasta os valores.",
+    "why.easy.p": "Mude cores, textos e tamanhos no Breezedesk Editor e veja a área de trabalho mudar enquanto você arrasta os valores.",
     "why.easy.1": "Editor visual com seletor de cores e prévia ao vivo",
-    "why.easy.2": "Compartilhe widgets em um arquivo .plume e instale com dois cliques",
+    "why.easy.2": "Compartilhe widgets em um arquivo .breeze e instale com dois cliques",
     "why.easy.3": "Quem quer mais tem fórmulas e scripts LuaJIT",
     "why.safe.t": "Seguro, privado e seu",
     "why.safe.p": "Sem conta, sem anúncios, sem coleta de dados. O código é aberto para qualquer pessoa ler.",
@@ -56,7 +56,7 @@
     "show.editor.p": "Ligue e desligue widgets, escolha cores, arraste números. Com o salvamento automático, cada mudança aparece na hora na sua área de trabalho.",
     "try.kicker": "Experimente aqui mesmo",
     "try.title": "Do seu jeito em segundos",
-    "try.sub": "É assim que se personaliza um widget. No Plume você faz o mesmo no editor, ou em poucas linhas de texto.",
+    "try.sub": "É assim que se personaliza um widget. No Breezedesk você faz o mesmo no editor, ou em poucas linhas de texto.",
     "try.label": "Nome",
     "try.accent": "Cor de destaque",
     "try.glass": "Fundo de vidro",
@@ -73,18 +73,18 @@
     "steps.3.p": "Arraste para onde quiser. Abra o editor para mudar cores e textos.",
     "faq.title": "Dúvidas",
     "faq.1.q": "É grátis mesmo?",
-    "faq.1.a": "Sim. O Plume é open source com licença MIT: sem anúncios, sem versão paga, sem conta.",
+    "faq.1.a": "Sim. O Breezedesk é open source com licença MIT: sem anúncios, sem versão paga, sem conta.",
     "faq.2.q": "O Windows diz que o download não é seguro. É perigoso?",
-    "faq.2.a": "O Plume é novo e ainda não tem assinatura digital, então o SmartScreen mostra um aviso (clique em <em>Mais informações → Executar assim mesmo</em>), e alguns antivírus podem marcá-lo por engano com nomes que terminam em <code>!ml</code>, que é um palpite de aprendizado de máquina, não um vírus conhecido. Todo o código é público, e cada versão é gerada automaticamente pelo GitHub a partir desse código.",
+    "faq.2.a": "O Breezedesk é novo e ainda não tem assinatura digital, então o SmartScreen mostra um aviso (clique em <em>Mais informações → Executar assim mesmo</em>), e alguns antivírus podem marcá-lo por engano com nomes que terminam em <code>!ml</code>, que é um palpite de aprendizado de máquina, não um vírus conhecido. Todo o código é público, e cada versão é gerada automaticamente pelo GitHub a partir desse código.",
     "faq.3.q": "Vai deixar meus jogos mais lentos?",
-    "faq.3.a": "Ele foi feito para não deixar. O Plume só acorda quando um widget precisa atualizar (normalmente uma vez por segundo), desenha em menos de meio milissegundo e só lê os sensores que seus widgets mostram. Você também pode esconder todos os widgets com um clique no ícone da bandeja.",
+    "faq.3.a": "Ele foi feito para não deixar. O Breezedesk só acorda quando um widget precisa atualizar (normalmente uma vez por segundo), desenha em menos de meio milissegundo e só lê os sensores que seus widgets mostram. Você também pode esconder todos os widgets com um clique no ícone da bandeja.",
     "faq.4.q": "Ele envia meus dados para algum lugar?",
-    "faq.4.a": "Não. O Plume não tem telemetria. Ele só acessa a internet para procurar atualizações no GitHub e para buscar o que seus widgets mostram (como clima ou notícias).",
+    "faq.4.a": "Não. O Breezedesk não tem telemetria. Ele só acessa a internet para procurar atualizações no GitHub e para buscar o que seus widgets mostram (como clima ou notícias).",
     "faq.5.q": "Posso usar skins do Rainmeter?",
-    "faq.5.a": "Não diretamente: o Plume tem o próprio formato, mais simples. A maioria das skins é rápida de refazer com o editor ou um arquivo de texto curto.",
+    "faq.5.a": "Não diretamente: o Breezedesk tem o próprio formato, mais simples. A maioria das skins é rápida de refazer com o editor ou um arquivo de texto curto.",
     "faq.6.q": "Como desinstalo?",
-    "faq.6.a": "Configurações do Windows → Aplicativos → Aplicativos instalados → Plume → Desinstalar. Ele pergunta antes de apagar seus widgets.",
-    "final.title": "Dê uma pena para a sua área de trabalho.",
+    "faq.6.a": "Configurações do Windows → Aplicativos → Aplicativos instalados → Breezedesk → Desinstalar. Ele pergunta antes de apagar seus widgets.",
+    "final.title": "Dê um respiro para a sua área de trabalho.",
     "final.sub": "Grátis, open source e pronto em um minuto.",
     "final.portable": "Versão portátil e notas da versão",
     "footer.mit": "Licença MIT",
@@ -108,7 +108,7 @@
     nodes.forEach((n) => { const v = dict[n.dataset.i18n]; if (v) n.innerHTML = v; });
     document.documentElement.lang = lang === "pt" ? "pt-BR" : "en";
     document.querySelectorAll(".lang button").forEach((b) => b.classList.toggle("on", b.dataset.lang === lang));
-    try { localStorage.setItem("plume-lang", lang); } catch (e) { /* storage unavailable */ }
+    try { localStorage.setItem("breezedesk-lang", lang); } catch (e) { /* storage unavailable */ }
     showVersion();
     tick();
     renderPlayground();
@@ -122,7 +122,7 @@
     const el = document.getElementById("version");
     if (el && version) el.textContent = `${(lang === "pt" ? PT : EN).version} ${version}`;
   }
-  fetch("https://api.github.com/repos/JoaoVictorCoder/Plume/releases/latest")
+  fetch("https://api.github.com/repos/JoaoVictorCoder/Breezedesk/releases/latest")
     .then((r) => (r.ok ? r.json() : null))
     .then((r) => { if (r && r.tag_name) { version = r.tag_name.replace(/^v/, ""); showVersion(); } })
     .catch(() => {});
@@ -267,7 +267,7 @@
 
   // ------------------------------------------------------------ start
   let saved = null;
-  try { saved = localStorage.getItem("plume-lang"); } catch (e) { /* storage unavailable */ }
+  try { saved = localStorage.getItem("breezedesk-lang"); } catch (e) { /* storage unavailable */ }
   const browserPt = (navigator.language || "").toLowerCase().startsWith("pt");
   setLang(saved || (browserPt ? "pt" : "en"));
 })();

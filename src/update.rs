@@ -1,19 +1,19 @@
 //! Automatic updates from the project's GitHub Releases.
 //!
 //! The latest release is read from the GitHub API. If its version is newer,
-//! the installer (`Plume-Setup.exe`) is downloaded, checked against the
-//! published SHA-256 (`Plume-Setup.exe.sha256`) and run silently; it replaces
+//! the installer (`Breezedesk-Setup.exe`) is downloaded, checked against the
+//! published SHA-256 (`Breezedesk-Setup.exe.sha256`) and run silently; it replaces
 //! the program and starts it again.
 
 use sha2::{Digest, Sha256};
 use std::path::PathBuf;
 
 /// GitHub repository the releases come from.
-pub const REPO: &str = "JoaoVictorCoder/Plume";
-pub const INSTALLER: &str = "Plume-Setup.exe";
+pub const REPO: &str = "JoaoVictorCoder/Breezedesk";
+pub const INSTALLER: &str = "Breezedesk-Setup.exe";
 
 /// Builds made from the `dev` branch never update themselves.
-pub const DEV_BUILD: bool = option_env!("PLUME_DEV").is_some();
+pub const DEV_BUILD: bool = option_env!("BREEZEDESK_DEV").is_some();
 
 pub type Version = (u64, u64, u64);
 
@@ -40,9 +40,9 @@ pub fn fmt(v: Version) -> String {
     format!("{}.{}.{}", v.0, v.1, v.2)
 }
 
-/// API address (overridable with `PLUME_UPDATE_URL` for testing).
+/// API address (overridable with `BREEZEDESK_UPDATE_URL` for testing).
 fn api_url() -> String {
-    std::env::var("PLUME_UPDATE_URL")
+    std::env::var("BREEZEDESK_UPDATE_URL")
         .unwrap_or_else(|_| format!("https://api.github.com/repos/{REPO}/releases/latest"))
 }
 
@@ -87,9 +87,9 @@ pub fn download(rel: &Release) -> Result<PathBuf, String> {
     if actual != expected {
         return Err(format!("checksum mismatch (expected {expected}, got {actual})"));
     }
-    let dir = std::env::temp_dir().join("plume-update");
+    let dir = std::env::temp_dir().join("breezedesk-update");
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    let path = dir.join(format!("Plume-Setup-{}.exe", fmt(rel.version)));
+    let path = dir.join(format!("Breezedesk-Setup-{}.exe", fmt(rel.version)));
     std::fs::write(&path, bytes).map_err(|e| e.to_string())?;
     Ok(path)
 }
@@ -111,8 +111,8 @@ mod tests {
     #[test]
     fn release_json_and_checksum() {
         let json = r#"{"tag_name":"v9.1.0","html_url":"https://github.com/x/y/releases/tag/v9.1.0",
-            "assets":[{"name":"Plume-Setup.exe","browser_download_url":"https://dl/setup.exe"},
-                      {"name":"Plume-Setup.exe.sha256","browser_download_url":"https://dl/setup.sha256"}]}"#;
+            "assets":[{"name":"Breezedesk-Setup.exe","browser_download_url":"https://dl/setup.exe"},
+                      {"name":"Breezedesk-Setup.exe.sha256","browser_download_url":"https://dl/setup.sha256"}]}"#;
         let r = parse_release(json).unwrap();
         assert_eq!(r.version, (9, 1, 0));
         assert_eq!(r.installer_url.as_deref(), Some("https://dl/setup.exe"));

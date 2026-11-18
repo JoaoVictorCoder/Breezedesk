@@ -1,4 +1,4 @@
-//! Tiny log file (`plume.log` in the widgets folder). Repeated messages are written once.
+//! Tiny log file (`breezedesk.log` in the widgets folder). Repeated messages are written once.
 
 use std::collections::HashSet;
 use std::io::Write;

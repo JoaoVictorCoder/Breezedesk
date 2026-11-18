@@ -586,7 +586,7 @@ pub const EXAMPLES: &[(&str, &[u8])] = &[
     ("launcher.toml", include_bytes!("../widgets/launcher.toml")),
     ("calendar.toml", include_bytes!("../widgets/calendar.toml")),
     ("processes.toml", include_bytes!("../widgets/processes.toml")),
-    ("assets/plume.png", include_bytes!("../widgets/assets/plume.png")),
+    ("assets/breezedesk.png", include_bytes!("../widgets/assets/breezedesk.png")),
 ];
 
 #[cfg(test)]

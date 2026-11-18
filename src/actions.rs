@@ -3,7 +3,7 @@
 //! ```text
 //! https://example.com           open a URL, file, folder or program
 //! "C:\app.exe" --some-arg       program with arguments (quote the path)
-//! !reload  !exit                reload widgets / quit Plume
+//! !reload  !exit                reload widgets / quit Breezedesk
 //! !hide  !show  !toggle         all widgets
 //! !toggle:clock                 show/hide one widget by name
 //! !refresh                      update this widget now

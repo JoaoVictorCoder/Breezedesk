@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://joaovictorcoder.github.io/Plume/sitemap.xml
+Sitemap: https://joaovictorcoder.github.io/Breezedesk/sitemap.xml
