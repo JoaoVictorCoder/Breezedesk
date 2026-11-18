@@ -2,6 +2,11 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this project follows [Semantic Versioning](https://semver.org/).
 
+## [0.6.2] - 2026-11-18
+### Fixed
+- Clicking the desktop no longer brings the widgets above open windows. "Show desktop" (Win+D) is now detected by checking that the desktop really is in front of every window, not just that it is the active window.
+- Widgets no longer disappear behind the desktop (e.g. after clicking the taskbar): "bottom" widgets are kept right above the desktop window instead of at the very bottom of the window stack.
+
 ## [0.6.1] - 2026-11-18
 ### Fixed
 - Dragging widgets: they always follow the mouse now. Snapping only considers the screen edges and neighbouring widgets, so a widget no longer gets stuck or moves along one axis only.

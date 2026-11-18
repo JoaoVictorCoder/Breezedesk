@@ -22,6 +22,7 @@ use std::sync::Mutex;
 use std::time::SystemTime;
 use tiny_skia::Pixmap;
 use windows_sys::Win32::Foundation::*;
+use windows_sys::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_CLOAKED};
 use windows_sys::Win32::Graphics::Gdi::*;
 use windows_sys::Win32::System::LibraryLoader::{GetModuleHandleW, GetProcAddress};
 use windows_sys::Win32::System::Threading::GetCurrentThreadId;
@@ -181,6 +182,8 @@ struct App {
     hidden: bool,
     /// Widgets cannot be dragged.
     locked: bool,
+    /// The desktop window last seen in front (Win+D raises one).
+    desktop_window: HWND,
     /// While dragging: cursor position relative to the widget's corner.
     drag_offset: Option<(i32, i32)>,
     /// A newer release found on GitHub.
@@ -339,7 +342,7 @@ impl App {
                 } else {
                     SetWindowPos(w.hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, flags);
                     if z == ZOrder::Bottom {
-                        SetWindowPos(w.hwnd, HWND_BOTTOM, 0, 0, 0, 0, flags);
+                        place_above_desktop(w.hwnd);
                     }
                 }
             }
@@ -369,7 +372,7 @@ impl App {
             if self.desktop_shown && w.w.cfg.z != ZOrder::Top {
                 SetWindowPos(w.hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
             } else if w.w.cfg.z == ZOrder::Bottom {
-                SetWindowPos(w.hwnd, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+                place_above_desktop(w.hwnd);
             }
         }
     }
@@ -588,12 +591,11 @@ fn create_window(w: Widget, positions: &std::collections::BTreeMap<String, [i32;
                 apply_blur(hwnd, bg, width, height, scale);
             }
         }
-        let insert_after = if cfg.z == ZOrder::Bottom { HWND_BOTTOM } else { null_mut() };
-        let flags = SWP_NOMOVE
-            | SWP_NOACTIVATE
-            | if shown { SWP_SHOWWINDOW } else { 0 }
-            | if cfg.z == ZOrder::Bottom { 0 } else { SWP_NOZORDER };
-        SetWindowPos(hwnd, insert_after, 0, 0, width as i32, height as i32, flags);
+        let flags = SWP_NOMOVE | SWP_NOACTIVATE | SWP_NOZORDER | if shown { SWP_SHOWWINDOW } else { 0 };
+        SetWindowPos(hwnd, null_mut(), 0, 0, width as i32, height as i32, flags);
+        if cfg.z == ZOrder::Bottom {
+            place_above_desktop(hwnd);
+        }
         arm_timer(hwnd, cfg.update_ms);
     }
     Some(WinWidget {
@@ -1103,12 +1105,112 @@ fn track_leave(hwnd: HWND, nonclient: bool) {
     unsafe { TrackMouseEvent(&mut t) };
 }
 
-/// True for the desktop window that "show desktop" (Win+D) brings to the front.
+/// True for the desktop windows (the icons host, or the one Win+D raises).
 fn is_desktop_window(hwnd: HWND) -> bool {
     let mut buf = [0u16; 32];
     let n = unsafe { GetClassNameW(hwnd, buf.as_mut_ptr(), buf.len() as i32) };
     let class = String::from_utf16_lossy(&buf[..n.max(0) as usize]);
     class == "WorkerW" || class == "Progman"
+}
+
+/// The window that shows the desktop icons: Progman, or a WorkerW on some setups.
+fn desktop_host() -> HWND {
+    unsafe {
+        let defview = wide("SHELLDLL_DefView");
+        let has_icons = |w: HWND| !w.is_null() && !FindWindowExW(w, null_mut(), defview.as_ptr(), null()).is_null();
+        let progman = FindWindowW(wide("Progman").as_ptr(), null());
+        if has_icons(progman) {
+            return progman;
+        }
+        let worker = wide("WorkerW");
+        let mut w = null_mut();
+        loop {
+            w = FindWindowExW(null_mut(), w, worker.as_ptr(), null());
+            if w.is_null() {
+                return progman;
+            }
+            if has_icons(w) {
+                return w;
+            }
+        }
+    }
+}
+
+/// Where a "bottom" widget goes in the window stack: right above the desktop.
+/// (Not at the very bottom: the desktop window itself could then cover it.)
+/// `None` when the widget is already there.
+fn above_desktop(hwnd: HWND) -> Option<HWND> {
+    unsafe {
+        let host = desktop_host();
+        if host.is_null() {
+            return Some(HWND_BOTTOM);
+        }
+        let prev = GetWindow(host, GW_HWNDPREV);
+        if prev == hwnd {
+            return None;
+        }
+        // The window above the desktop is "always on top" (the desktop is raised):
+        // never join that group.
+        if prev.is_null() || GetWindowLongW(prev, GWL_EXSTYLE) as u32 & WS_EX_TOPMOST != 0 {
+            return Some(HWND_BOTTOM);
+        }
+        Some(prev)
+    }
+}
+
+fn place_above_desktop(hwnd: HWND) {
+    if let Some(after) = above_desktop(hwnd) {
+        unsafe { SetWindowPos(hwnd, after, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE) };
+    }
+}
+
+/// A normal application window the user can see (not ours, not minimized,
+/// not "always on top" like the taskbar, not a hidden/cloaked app).
+fn is_visible_app_window(w: HWND) -> bool {
+    unsafe {
+        if IsWindowVisible(w) == 0 || IsIconic(w) != 0 || !GetWindow(w, GW_OWNER).is_null() {
+            return false;
+        }
+        let ex = GetWindowLongW(w, GWL_EXSTYLE) as u32;
+        if ex & (WS_EX_TOPMOST | WS_EX_TOOLWINDOW) != 0 {
+            return false;
+        }
+        let mut pid = 0u32;
+        GetWindowThreadProcessId(w, &mut pid);
+        if pid == std::process::id() {
+            return false;
+        }
+        let mut cloaked = 0u32;
+        let r = DwmGetWindowAttribute(w, DWMWA_CLOAKED as u32, &mut cloaked as *mut u32 as *mut _, 4);
+        if r == 0 && cloaked != 0 {
+            return false;
+        }
+        let mut rc = RECT { left: 0, top: 0, right: 0, bottom: 0 };
+        GetWindowRect(w, &mut rc);
+        rc.right > rc.left && rc.bottom > rc.top
+    }
+}
+
+/// "Show desktop" is active when the desktop window is above every visible
+/// application window. (A plain click on the desktop also makes it the active
+/// window, but it stays below the open windows.)
+fn desktop_raised(desktop: HWND) -> bool {
+    unsafe {
+        if desktop.is_null() || IsWindowVisible(desktop) == 0 {
+            return false;
+        }
+        let mut w = GetTopWindow(null_mut());
+        while !w.is_null() {
+            if w == desktop {
+                return true;
+            }
+            if is_visible_app_window(w) {
+                return false;
+            }
+            w = GetWindow(w, GW_HWNDNEXT);
+        }
+        false
+    }
 }
 
 unsafe extern "system" fn on_foreground(
@@ -1123,7 +1225,7 @@ unsafe extern "system" fn on_foreground(
     check_foreground(hwnd);
 }
 
-/// Updates the "show desktop" state from the window now in the foreground.
+/// Re-checks "show desktop" when the active window changes (and every second).
 /// Our own windows (a clicked widget, the tray menu) leave the state as it is.
 fn check_foreground(hwnd: HWND) {
     if hwnd.is_null() {
@@ -1134,8 +1236,13 @@ fn check_foreground(hwnd: HWND) {
     if pid == std::process::id() {
         return;
     }
-    let desktop = is_desktop_window(hwnd);
-    with_app(|a| a.set_desktop_shown(desktop));
+    with_app(|a| {
+        if is_desktop_window(hwnd) {
+            a.desktop_window = hwnd;
+        }
+        let raised = desktop_raised(a.desktop_window);
+        a.set_desktop_shown(raised);
+    });
 }
 
 unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) -> LRESULT {
@@ -1270,9 +1377,12 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) 
             let bottom = with_app(|a| {
                 a.index_of(hwnd).map(|i| a.widgets[i].w.cfg.z == ZOrder::Bottom && !a.desktop_shown)
             });
-            if bottom.flatten().unwrap_or(false) {
-                let wpos = &mut *(lp as *mut WINDOWPOS);
-                wpos.hwndInsertAfter = HWND_BOTTOM;
+            let wpos = &mut *(lp as *mut WINDOWPOS);
+            if bottom.flatten().unwrap_or(false) && wpos.flags & SWP_NOZORDER == 0 {
+                match above_desktop(hwnd) {
+                    Some(after) => wpos.hwndInsertAfter = after,
+                    None => wpos.flags |= SWP_NOZORDER, // already right above the desktop
+                }
             }
             DefWindowProcW(hwnd, msg, wp, lp)
         }
@@ -1398,6 +1508,7 @@ pub fn run(dir: PathBuf) {
             hidden: false,
             locked: tray::positions_locked(),
             drag_offset: None,
+            desktop_window: null_mut(),
             tray: (!tray_hwnd.is_null()).then(|| Tray::new(tray_hwnd)),
             watch: Vec::new(),
             desktop_shown: false,
