@@ -2,6 +2,15 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this project follows [Semantic Versioning](https://semver.org/).
 
+## [0.7.0] - 2026-11-18
+### Changed
+- **Plume is now called Breezedesk** (another project already used the name Plume).
+  - Program: `breezedesk.exe` and `breezedesk-editor.exe`, installed in `%LOCALAPPDATA%\Programs\Breezedesk`.
+  - Widgets: `%APPDATA%\Breezedesk\widgets`. Lua: `breezedesk.get(...)` etc.
+  - Widget packages use the `.breeze` extension.
+- Automatic migration from Plume: installed copies update themselves to Breezedesk and the installer moves the widgets, settings, "Start with Windows" and saved positions, then removes the old program, shortcuts and uninstall entry. Portable copies move `%APPDATA%\Plume` on first start.
+- Still compatible: `.plume` packages install, Lua scripts using `plume.*` work, `plume.state` is read.
+
 ## [0.6.2] - 2026-11-18
 ### Fixed
 - Clicking the desktop no longer brings the widgets above open windows. "Show desktop" (Win+D) is now detected by checking that the desktop really is in front of every window, not just that it is the active window.

@@ -1,7 +1,7 @@
 name: Website
 
 # Publishes the site/ folder to GitHub Pages
-# (https://joaovictorcoder.github.io/Plume/) when it changes on main.
+# (https://joaovictorcoder.github.io/Breezedesk/) when it changes on main.
 on:
   push:
     branches: [main]

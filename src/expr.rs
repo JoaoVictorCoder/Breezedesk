@@ -580,7 +580,7 @@ mod tests {
         E(HashMap::from([
             ("cpu", Value::Num(42.4, 0)),
             ("ram_used", Value::Num(7.84, 1)),
-            ("name", Value::Str("Plume".into())),
+            ("name", Value::Str("Breezedesk".into())),
             ("w.current.temp", Value::Num(21.5, 1)),
         ]))
     }
@@ -605,9 +605,9 @@ mod tests {
         assert_eq!(ev("cpu > 40 ? 'hot' : 'ok'"), "hot");
         assert_eq!(ev("if(cpu < 10, 'idle', 'busy')"), "busy");
         assert_eq!(ev("cpu > 40 and not (cpu > 50)"), "1");
-        assert_eq!(ev("name + ' ' + 1"), "Plume 1");
-        assert_eq!(ev("name == 'Plume'"), "1");
-        assert_eq!(ev("upper(name)"), "PLUME");
+        assert_eq!(ev("name + ' ' + 1"), "Breezedesk 1");
+        assert_eq!(ev("name == 'Breezedesk'"), "1");
+        assert_eq!(ev("upper(name)"), "BREEZEDESK");
         assert_eq!(ev("trunc('abcdefgh', 4)"), "abc…");
         assert_eq!(ev("w.current.temp"), "21.5");
         assert_eq!(ev("missing"), "");

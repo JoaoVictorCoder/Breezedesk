@@ -1,6 +1,6 @@
 [package]
-name = "plume"
-version = "0.6.0"
+name = "breezedesk"
+version = "0.7.0"
 edition = "2021"
 description = "Lightweight desktop widgets for Windows (Rainmeter-style), written in Rust"
 license = "MIT"

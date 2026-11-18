@@ -1,16 +1,18 @@
-# Plume
+# Breezedesk
 
 Lightweight desktop widgets for Windows, in the spirit of Rainmeter, written in Rust and built to use as little CPU and RAM as possible.
 
-**Website:** https://joaovictorcoder.github.io/Plume/
+**Website:** https://joaovictorcoder.github.io/Breezedesk/
+
+> Breezedesk was called **Plume** until version 0.6. Installed copies update and move their widgets and settings automatically; `.plume` packages and `plume.*` in Lua scripts keep working.
 
 ![preview](preview.png)
 
 ## Features
 - Transparent widgets drawn on the desktop, always on top or in a normal window layer. You can drag them, make them click-through and set their opacity.
 - Text (with wrapping, bold and italic), rectangles, bars, line graphs, circular gauges, images, a month calendar and an audio visualizer.
-- **Plume Editor**: edit widgets visually, without touching TOML.
-- **Widget packages** (`.plume`): share widgets as one file; double-click to install.
+- **Breezedesk Editor**: edit widgets visually, without touching TOML.
+- **Widget packages** (`.breeze`): share widgets as one file; double-click to install.
 - Sharp on high-DPI screens (125%, 150%, 4K) and across monitors with different scaling.
 - Variables, math and conditions in any text, color or value: `{cpu > 80 ? 'HOT' : 'ok'}`.
 - CPU (total and per core), RAM, GPU, VRAM, disks, temperatures, network, ping, battery, top processes, uptime and date/time (in your language).
@@ -34,30 +36,30 @@ Lightweight desktop widgets for Windows, in the spirit of Rainmeter, written in 
 - Downloads use WinHTTP, which is built into Windows, so no TLS library is bundled.
 
 ## Install
-Download **`Plume-Setup.exe`** from the [latest release](https://github.com/JoaoVictorCoder/Plume/releases/latest) and run it.
-- It installs for your user only, so it needs no administrator rights. The program goes to `%LOCALAPPDATA%\Programs\Plume`.
+Download **`Breezedesk-Setup.exe`** from the [latest release](https://github.com/JoaoVictorCoder/Breezedesk/releases/latest) and run it.
+- It installs for your user only, so it needs no administrator rights. The program goes to `%LOCALAPPDATA%\Programs\Breezedesk`.
 - It adds a Start menu shortcut and an entry in *Apps & features* to uninstall it.
-- **Your widgets** live in `%APPDATA%\Plume\widgets`. Installs and updates never touch them, and the uninstaller asks before deleting them.
+- **Your widgets** live in `%APPDATA%\Breezedesk\widgets`. Installs and updates never touch them, and the uninstaller asks before deleting them.
 - Windows may show a SmartScreen warning because the program is not signed: click *More info* → *Run anyway*.
 - Some antivirus programs (e.g. Windows Defender's `Wacatac!ml`) can flag new, unsigned programs by mistake. The `!ml` means a machine-learning guess, not a known virus. The full source code is in this repository, and false positives can be reported to Microsoft at https://www.microsoft.com/en-us/wdsi/filesubmission.
 
-**Portable:** download `Plume-X.Y.Z-portable.zip` instead, extract it anywhere and run `plume.exe`. A `widgets` folder next to the `.exe` makes Plume portable: it keeps everything in that folder.
+**Portable:** download `Breezedesk-X.Y.Z-portable.zip` instead, extract it anywhere and run `breezedesk.exe`. A `widgets` folder next to the `.exe` makes Breezedesk portable: it keeps everything in that folder.
 
 ## Updates
-Installed copies check GitHub for a new release 20 seconds after starting and then every 6 hours. A new version is downloaded, checked against its published SHA-256, installed silently, and Plume restarts. You get a notification when this happens.
-- To turn this off, uncheck *Automatic updates* in the tray menu. Plume then only tells you that an update exists.
+Installed copies check GitHub for a new release 20 seconds after starting and then every 6 hours. A new version is downloaded, checked against its published SHA-256, installed silently, and Breezedesk restarts. You get a notification when this happens.
+- To turn this off, uncheck *Automatic updates* in the tray menu. Breezedesk then only tells you that an update exists.
 - *Check for updates* in the tray menu checks right away.
 - Portable copies are never changed: they only tell you that an update exists.
 
 ## Usage
 - **Tray icon:** left click shows/hides all widgets; right click opens the menu.
 - **Menu** (tray icon or right click on a widget): *Show/Hide widgets*, *Widgets* (show/hide each one), *Lock positions*, *Edit widgets...*, *Reload widgets*, *Open widgets folder*, *Install example widgets*, *Open log*, *Start with Windows*, *Check for updates*, *Automatic updates* and *Exit*.
-- **Drag:** drag any part of a widget that is not clickable. It snaps to screen edges and other widgets (hold **Shift** to place it freely). Positions and hidden widgets are saved in `widgets\plume.state`.
-- **Edit visually:** *Edit widgets...* opens Plume Editor (also in the Start menu). With *Auto-save* on, changes appear on the desktop while you edit.
-- **Packages:** double-click a `.plume` file to install its widgets (you are asked first). In the editor, *Export as package...* creates one from a widget, with its script and images.
-- **Errors** in widget files show up as a notification and are written to `widgets\plume.log`.
-- **Other folder:** `plume.exe C:\my\widgets` uses that folder instead.
-- **PNG preview** (works on any OS): `plume --preview widgets`
+- **Drag:** drag any part of a widget that is not clickable. It snaps to screen edges and other widgets (hold **Shift** to place it freely). Positions and hidden widgets are saved in `widgets\breezedesk.state`.
+- **Edit visually:** *Edit widgets...* opens Breezedesk Editor (also in the Start menu). With *Auto-save* on, changes appear on the desktop while you edit.
+- **Packages:** double-click a `.breeze` file (or a `.plume` file from before the rename) to install its widgets (you are asked first). In the editor, *Export as package...* creates one from a widget, with its script and images.
+- **Errors** in widget files show up as a notification and are written to `widgets\breezedesk.log`.
+- **Other folder:** `breezedesk.exe C:\my\widgets` uses that folder instead.
+- **PNG preview** (works on any OS): `breezedesk --preview widgets`
 
 ## Examples
 | File | Shows |
@@ -180,7 +182,7 @@ A sensor that is not available gives `null`, which shows as empty text. Use `def
 https://example.com            open a URL, file, folder or program
 "C:\Path\app.exe" --arg        program with arguments (quote the path)
 assets/readme.txt              paths are relative to the widgets folder
-!reload  !exit                 reload widgets / quit Plume
+!reload  !exit                 reload widgets / quit Breezedesk
 !hide  !show  !toggle          all widgets
 !toggle:clock                  show/hide one widget by name
 !refresh                       update this widget now
@@ -195,15 +197,15 @@ Actions are templates too: `on_click = "{news.items.0.link}"`.
 ```lua
 -- update() runs on every widget update; the table it returns becomes variables.
 function update()
-  local cpu = plume.get("cpu")
+  local cpu = breezedesk.get("cpu")
   return { status = cpu > 80 and "Busy" or "Idle", info = { cores = 8 } }  -- {status}, {info.cores}
 end
 
 -- Any function can be used in expressions ({lua('double', cpu)}) or actions (!lua:clicked).
 function double(x) return x * 2 end
-function clicked() plume.set("count", (plume.get("count") or 0) + 1) end
+function clicked() breezedesk.set("count", (breezedesk.get("count") or 0) + 1) end
 ```
-- **Host API:** `plume.get(name)`, `plume.eval("expression")`, `plume.set(name, value)` (persistent variable), `plume.run("action")`, `plume.log(...)`, `plume.widget`.
+- **Host API:** `breezedesk.get(name)`, `breezedesk.eval("expression")`, `breezedesk.set(name, value)` (persistent variable), `breezedesk.run("action")`, `breezedesk.log(...)`, `breezedesk.widget`.
 - **Optional `init()`:** called once after the script loads.
 - **Sandbox:** scripts get `string`, `table`, `math`, `bit`, `jit` and `os.time/date/clock`. File access (`io`), `require` and running programs are not available, so a downloaded widget cannot touch your files.
 
@@ -226,11 +228,11 @@ function clicked() plume.set("count", (plume.get("count") or 0) + 1) end
 | `src/script.rs` | LuaJIT |
 | `src/actions.rs` | Click actions |
 | `src/update.rs` | Automatic updates from GitHub Releases |
-| `src/package.rs` | `.plume` widget packages (shared with the editor) |
+| `src/package.rs` | `.breeze` widget packages (shared with the editor) |
 | `src/locale.rs`, `src/lhm.rs`, `src/ping.rs` | Date language, LibreHardwareMonitor sensors, ping |
-| `editor/` | Plume Editor (egui), a separate program: `plume-editor.exe` |
+| `editor/` | Breezedesk Editor (egui), a separate program: `breezedesk-editor.exe` |
 | `src/win.rs`, `src/tray.rs` | Windows, mouse, timers, auto-reload, blur, tray, settings |
-| `installer/plume.nsi` | Windows installer (NSIS) |
+| `installer/breezedesk.nsi` | Windows installer (NSIS) |
 | `scripts/` | Version picking and packaging (used by the workflows) |
 | `.github/workflows/` | CI on `dev`, releases on `main` |
 

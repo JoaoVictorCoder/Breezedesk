@@ -1,7 +1,7 @@
-//! Plume Editor: edit widgets visually instead of writing TOML by hand.
+//! Breezedesk Editor: edit widgets visually instead of writing TOML by hand.
 //!
-//! It edits the same `.toml` files Plume reads, keeping their comments and
-//! layout (toml_edit). Plume reloads a widget as soon as its file is saved, so
+//! It edits the same `.toml` files Breezedesk reads, keeping their comments and
+//! layout (toml_edit). Breezedesk reloads a widget as soon as its file is saved, so
 //! with "Auto-save" on, changes show up on the desktop while you drag values.
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
@@ -193,7 +193,7 @@ fn list_widgets(dir: &Path) -> Vec<WidgetFile> {
     paths.into_iter().map(WidgetFile::load).collect()
 }
 
-/// Same folder Plume uses (see Plume's main.rs).
+/// Same folder Breezedesk uses (see Breezedesk's main.rs).
 fn default_dir() -> PathBuf {
     if let Some(arg) = std::env::args().nth(1) {
         return PathBuf::from(arg);
@@ -203,7 +203,7 @@ fn default_dir() -> PathBuf {
     if portable.exists() {
         return portable;
     }
-    std::env::var_os("APPDATA").map(|p| PathBuf::from(p).join("Plume").join("widgets")).unwrap_or(portable)
+    std::env::var_os("APPDATA").map(|p| PathBuf::from(p).join("Breezedesk").join("widgets")).unwrap_or(portable)
 }
 
 fn open_external(path: &Path) {
@@ -258,7 +258,7 @@ impl Editor {
             }
         }
         if n > 0 {
-            self.status = format!("Saved {n} file(s). Plume reloads them automatically.");
+            self.status = format!("Saved {n} file(s). Breezedesk reloads them automatically.");
         }
     }
 
@@ -279,7 +279,7 @@ impl Editor {
             n += 1;
         };
         let body = format!(
-            "# Created with Plume Editor.\nname = \"widget-{n}\"\nx = 200\ny = 200\nwidth = 240\nheight = 90\n\n\
+            "# Created with Breezedesk Editor.\nname = \"widget-{n}\"\nx = 200\ny = 200\nwidth = 240\nheight = 90\n\n\
              [background]\ncolor = \"#0E0F14B0\"\nradius = 14\n\n\
              [[element]]\ntype = \"text\"\nx = 16\ny = 14\nsize = 32\ntext = \"{{time:%H:%M}}\"\n"
         );
@@ -294,7 +294,7 @@ impl Editor {
     }
 
     fn install_package(&mut self) {
-        let Some(file) = rfd::FileDialog::new().add_filter("Plume package", &[package::EXT]).pick_file() else { return };
+        let Some(file) = rfd::FileDialog::new().add_filter("Breezedesk package", &[package::EXT, package::OLD_EXT]).pick_file() else { return };
         let pkg = match package::Package::open(&file) {
             Ok(p) => p,
             Err(e) => {
@@ -327,7 +327,7 @@ impl Editor {
         let Some(f) = self.files.get(self.selected) else { return };
         let Some(rel) = f.path.file_name().map(PathBuf::from) else { return };
         let Some(out) = rfd::FileDialog::new()
-            .add_filter("Plume package", &[package::EXT])
+            .add_filter("Breezedesk package", &[package::EXT])
             .set_file_name(format!("{}.{}", f.name(), package::EXT))
             .save_file()
         else {
@@ -572,7 +572,7 @@ impl eframe::App for Editor {
 
         egui::Panel::top("toolbar").show(root, |ui| {
             ui.horizontal(|ui| {
-                ui.heading("Plume Editor");
+                ui.heading("Breezedesk Editor");
                 ui.separator();
                 let dirty = self.files.iter().any(|f| f.dirty);
                 if ui.add_enabled(dirty, egui::Button::new("Save")).on_hover_text("Ctrl+S").clicked() {
@@ -742,8 +742,8 @@ fn main() -> eframe::Result<()> {
     let dir = default_dir();
     let _ = std::fs::create_dir_all(&dir);
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_inner_size([1000.0, 700.0]).with_title("Plume Editor"),
+        viewport: egui::ViewportBuilder::default().with_inner_size([1000.0, 700.0]).with_title("Breezedesk Editor"),
         ..Default::default()
     };
-    eframe::run_native("Plume Editor", options, Box::new(move |_cc| Ok(Box::new(Editor::new(dir)))))
+    eframe::run_native("Breezedesk Editor", options, Box::new(move |_cc| Ok(Box::new(Editor::new(dir)))))
 }

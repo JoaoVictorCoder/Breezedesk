@@ -7,9 +7,9 @@
 //! - any function, callable from expressions with `lua("name", args...)` or
 //!   from actions with `!lua:name`
 //!
-//! The `plume` table gives access to the host:
-//! `plume.eval(expr)`, `plume.get(name)`, `plume.set(name, value)`,
-//! `plume.run(action)`, `plume.log(msg)` and `plume.widget` (the widget name).
+//! The `breezedesk` table gives access to the host:
+//! `breezedesk.eval(expr)`, `breezedesk.get(name)`, `breezedesk.set(name, value)`,
+//! `breezedesk.run(action)`, `breezedesk.log(msg)` and `breezedesk.widget` (the widget name).
 //!
 //! Scripts are sandboxed: no `io`, no `require`, no file loading and only the
 //! harmless parts of `os` (time, date, clock).
@@ -23,9 +23,9 @@ use std::path::Path;
 pub struct Script {
     lua: Lua,
     depth: Cell<u32>,
-    /// Values given to `plume.set` (applied by the widget after each call).
+    /// Values given to `breezedesk.set` (applied by the widget after each call).
     pub pending_vars: RefCell<Vec<(String, Var)>>,
-    /// Actions given to `plume.run`.
+    /// Actions given to `breezedesk.run`.
     pub pending_actions: RefCell<Vec<String>>,
 }
 
@@ -51,10 +51,12 @@ impl Script {
                 Ok(())
             })?;
             g.set("print", log.clone())?;
-            let plume = lua.create_table()?;
-            plume.set("log", log)?;
-            plume.set("widget", widget)?;
-            g.set("plume", plume)?;
+            let breezedesk = lua.create_table()?;
+            breezedesk.set("log", log)?;
+            breezedesk.set("widget", widget)?;
+            g.set("breezedesk", breezedesk.clone())?;
+            // Scripts written before the rename (Plume) keep working.
+            g.set("plume", breezedesk)?;
             let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
             lua.load(&src).set_name(format!("@{name}")).exec()
         };
@@ -67,34 +69,34 @@ impl Script {
         })
     }
 
-    /// Runs `f` with the `plume.*` host functions bound to `env`.
+    /// Runs `f` with the `breezedesk.*` host functions bound to `env`.
     fn with_env<R>(&self, env: &dyn Env, f: impl FnOnce(&Lua) -> mlua::Result<R>) -> mlua::Result<R> {
         if self.depth.get() > 0 {
-            // Re-entered (e.g. lua() called from plume.eval): functions are already bound.
+            // Re-entered (e.g. lua() called from breezedesk.eval): functions are already bound.
             return f(&self.lua);
         }
         self.depth.set(1);
         let result = self.lua.scope(|scope| {
-            let plume: Table = self.lua.globals().get("plume")?;
-            plume.set(
+            let breezedesk: Table = self.lua.globals().get("breezedesk")?;
+            breezedesk.set(
                 "eval",
                 scope.create_function(|lua, src: String| {
                     let v = expr::parse(&src).map_err(mlua::Error::runtime)?.eval(env);
                     to_lua(lua, &v)
                 })?,
             )?;
-            plume.set(
+            breezedesk.set(
                 "get",
                 scope.create_function(|lua, name: String| to_lua(lua, &env.var(&name).unwrap_or(Value::Null)))?,
             )?;
-            plume.set(
+            breezedesk.set(
                 "set",
                 scope.create_function(|lua, (name, v): (String, LV)| {
                     self.pending_vars.borrow_mut().push((name, from_lua(lua, v)));
                     Ok(())
                 })?,
             )?;
-            plume.set(
+            breezedesk.set(
                 "run",
                 scope.create_function(|_, action: String| {
                     self.pending_actions.borrow_mut().push(action);
@@ -197,7 +199,7 @@ mod tests {
     }
 
     fn script(src: &str) -> Script {
-        let dir = std::env::temp_dir().join(format!("plume-test-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("breezedesk-test-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let p = dir.join(format!("{}.lua", src.len()));
         std::fs::write(&p, src).unwrap();
@@ -211,9 +213,9 @@ mod tests {
             local n = 0
             function update()
               n = n + 1
-              plume.set("count", n)
-              if plume.get("cpu") > 50 then plume.run("!reload") end
-              return { status = "cpu " .. plume.eval("cpu * 2"), info = { temp = 21.5 }, jit = jit.version }
+              breezedesk.set("count", n)
+              if breezedesk.get("cpu") > 50 then breezedesk.run("!reload") end
+              return { status = "cpu " .. breezedesk.eval("cpu * 2"), info = { temp = 21.5 }, jit = jit.version }
             end
             function double(x) return x * 2 end
             function sandbox() return tostring(io) .. tostring(os.execute) .. tostring(require) end

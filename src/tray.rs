@@ -38,7 +38,7 @@ impl Tray {
         nid.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
         nid.uCallbackMessage = WM_APP_TRAY;
         nid.hIcon = self.icon;
-        for (d, s) in nid.szTip.iter_mut().zip("Plume".encode_utf16()) {
+        for (d, s) in nid.szTip.iter_mut().zip("Breezedesk".encode_utf16()) {
             *d = s;
         }
         unsafe { Shell_NotifyIconW(NIM_ADD, &nid) };
@@ -144,7 +144,7 @@ fn rounded(x: f32, y: f32, w: f32, h: f32, r: f32) -> Option<tiny_skia::Path> {
 // ---------- Start with Windows (HKCU\...\Run) ----------
 
 const RUN_KEY: &str = r"Software\Microsoft\Windows\CurrentVersion\Run";
-const RUN_VALUE: &str = "Plume";
+const RUN_VALUE: &str = "Breezedesk";
 
 fn wide(s: &str) -> Vec<u16> {
     s.encode_utf16().chain(std::iter::once(0)).collect()
@@ -188,12 +188,16 @@ pub fn set_autostart(on: bool) {
     }
 }
 
-// ---------- Settings (HKCU\Software\Plume) ----------
+// ---------- Settings (HKCU\Software\Breezedesk) ----------
 
-const SETTINGS_KEY: &str = r"Software\Plume";
+const SETTINGS_KEY: &str = r"Software\Breezedesk";
 
 fn read_dword(name: &str) -> Option<u32> {
-    let (key, name) = (wide(SETTINGS_KEY), wide(name));
+    read_dword_at(SETTINGS_KEY, name)
+}
+
+fn read_dword_at(key: &str, name: &str) -> Option<u32> {
+    let (key, name) = (wide(key), wide(name));
     let mut value = 0u32;
     let mut size = 4u32;
     let ok = unsafe {
@@ -248,4 +252,32 @@ pub fn positions_locked() -> bool {
 
 pub fn set_positions_locked(on: bool) {
     write_dword("LockPositions", on as u32);
+}
+
+/// The project used to be called Plume: carry its settings over once.
+pub fn migrate_from_plume() {
+    const OLD_KEY: &str = r"Software\Plume";
+    for name in ["AutoUpdate", "LockPositions"] {
+        if read_dword(name).is_none() {
+            if let Some(v) = read_dword_at(OLD_KEY, name) {
+                write_dword(name, v);
+            }
+        }
+    }
+    unsafe {
+        let old = wide(OLD_KEY);
+        RegDeleteKeyW(HKEY_CURRENT_USER, old.as_ptr());
+    }
+    // "Start with Windows" pointed to the old program.
+    if let Some(h) = open_run_key(KEY_QUERY_VALUE | KEY_SET_VALUE) {
+        let old = wide("Plume");
+        let had = unsafe { RegQueryValueExW(h, old.as_ptr(), null(), null_mut(), null_mut(), null_mut()) } == ERROR_SUCCESS;
+        if had {
+            unsafe { RegDeleteValueW(h, old.as_ptr()) };
+        }
+        unsafe { RegCloseKey(h) };
+        if had {
+            set_autostart(true);
+        }
+    }
 }

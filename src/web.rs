@@ -229,7 +229,7 @@ pub fn get_bytes(url: &str) -> Result<Vec<u8>, String> {
         host.truncate(uc.dwHostNameLength as usize);
         host.push(0);
 
-        let agent = wide(concat!("Plume/", env!("CARGO_PKG_VERSION")));
+        let agent = wide(concat!("Breezedesk/", env!("CARGO_PKG_VERSION")));
         let session = H(WinHttpOpen(agent.as_ptr(), WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY, null(), null(), 0));
         if session.0.is_null() {
             return Err(err("WinHttpOpen"));

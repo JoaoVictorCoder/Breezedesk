@@ -18,7 +18,7 @@ pub fn ping(host: &str) -> Option<f64> {
         if h.is_null() || h as isize == -1 {
             return None;
         }
-        let data = *b"plume-ping";
+        let data = *b"breezedesk-ping";
         let mut reply = vec![0u8; std::mem::size_of::<ICMP_ECHO_REPLY>() + data.len() + 16];
         let n = IcmpSendEcho(
             h,

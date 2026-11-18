@@ -1,4 +1,4 @@
-//! `.plume` widget packages: a zip with widget files (TOML, Lua, images,
+//! `.breeze` widget packages: a zip with widget files (TOML, Lua, images,
 //! fonts). Double-clicking one installs it into the widgets folder.
 //!
 //! Only widget file types are accepted (never programs), and every path must
@@ -8,7 +8,14 @@ use std::collections::BTreeSet;
 use std::io::{Read, Write};
 use std::path::{Component, Path, PathBuf};
 
-pub const EXT: &str = "plume";
+pub const EXT: &str = "breeze";
+/// Packages made before the project was renamed (Plume) still install.
+pub const OLD_EXT: &str = "plume";
+
+#[allow(dead_code)] // used by the main program only
+pub fn is_package(p: &Path) -> bool {
+    p.extension().and_then(|e| e.to_str()).is_some_and(|e| e.eq_ignore_ascii_case(EXT) || e.eq_ignore_ascii_case(OLD_EXT))
+}
 const ALLOWED: &[&str] = &["toml", "lua", "png", "jpg", "jpeg", "bmp", "ico", "ttf", "otf", "txt", "md", "json"];
 const MAX_FILES: usize = 300;
 const MAX_BYTES: u64 = 50 * 1024 * 1024;
@@ -30,7 +37,7 @@ fn safe_relative(p: &Path) -> bool {
 impl Package {
     pub fn open(path: &Path) -> Result<Package, String> {
         let f = std::fs::File::open(path).map_err(|e| format!("{}: {e}", path.display()))?;
-        let mut zip = zip::ZipArchive::new(f).map_err(|e| format!("not a valid .plume package ({e})"))?;
+        let mut zip = zip::ZipArchive::new(f).map_err(|e| format!("not a valid .breeze package ({e})"))?;
         let mut files = Vec::new();
         let mut total = 0u64;
         for i in 0..zip.len() {
@@ -155,7 +162,7 @@ mod tests {
     use super::*;
 
     fn tmp(name: &str) -> PathBuf {
-        let d = std::env::temp_dir().join(format!("plume-pkg-{}-{name}", std::process::id()));
+        let d = std::env::temp_dir().join(format!("breezedesk-pkg-{}-{name}", std::process::id()));
         let _ = std::fs::remove_dir_all(&d);
         std::fs::create_dir_all(&d).unwrap();
         d
@@ -175,7 +182,7 @@ mod tests {
         std::fs::write(src.join("other.toml"), "name = \"other\"").unwrap();
 
         assert_eq!(references(&src, Path::new("w.toml")), vec![PathBuf::from("assets/a.png"), PathBuf::from("w.lua")]);
-        let out = src.join("demo.plume");
+        let out = src.join("demo.breeze");
         assert_eq!(create(&src, &[PathBuf::from("w.toml")], &out).unwrap(), 3);
 
         let pkg = Package::open(&out).unwrap();
@@ -198,8 +205,8 @@ mod tests {
             z.finish().unwrap();
             Package::open(&p)
         };
-        assert!(bad("a.plume", "../evil.toml").is_err());
-        assert!(bad("b.plume", "virus.exe").is_err());
-        assert!(bad("c.plume", "/etc/x.toml").is_err());
+        assert!(bad("a.breeze", "../evil.toml").is_err());
+        assert!(bad("b.breeze", "virus.exe").is_err());
+        assert!(bad("c.breeze", "/etc/x.toml").is_err());
     }
 }

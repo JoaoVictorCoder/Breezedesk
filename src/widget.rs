@@ -46,7 +46,7 @@ pub struct Widget {
     pub cfg: WidgetConfig,
     pub states: Vec<ElState>,
     pub vars: HashMap<String, Var>,
-    /// Values set with `!set` or `plume.set` (win over `[variables]`).
+    /// Values set with `!set` or `breezedesk.set` (win over `[variables]`).
     pub overrides: HashMap<String, Var>,
     defs: Vec<(String, VarDef)>,
     pub script: Option<Script>,

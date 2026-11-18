@@ -21,7 +21,7 @@ y = 12
 w = 60
 h = 60
 radius = 14
-path = "assets/plume.png"
+path = "assets/breezedesk.png"
 on_click = "."
 
 [[element]]

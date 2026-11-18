@@ -1,9 +1,9 @@
 //! Embeds the icon, version information and application manifest into
-//! plume.exe. Antivirus heuristics distrust executables without them.
+//! breezedesk.exe. Antivirus heuristics distrust executables without them.
 
 fn main() {
-    println!("cargo:rerun-if-changed=installer/plume.ico");
-    println!("cargo:rerun-if-changed=installer/plume.manifest");
+    println!("cargo:rerun-if-changed=installer/breezedesk.ico");
+    println!("cargo:rerun-if-changed=installer/breezedesk.manifest");
     if std::env::var("CARGO_CFG_TARGET_OS").as_deref() != Ok("windows") {
         return;
     }
@@ -13,14 +13,14 @@ fn main() {
         res.set_windres_path("x86_64-w64-mingw32-windres");
         res.set_ar_path("x86_64-w64-mingw32-ar");
     }
-    res.set_icon("installer/plume.ico")
-        .set_manifest_file("installer/plume.manifest")
-        .set("ProductName", "Plume")
-        .set("FileDescription", "Plume desktop widgets")
+    res.set_icon("installer/breezedesk.ico")
+        .set_manifest_file("installer/breezedesk.manifest")
+        .set("ProductName", "Breezedesk")
+        .set("FileDescription", "Breezedesk desktop widgets")
         .set("CompanyName", "JoaoVictorCoder")
         .set("LegalCopyright", "Copyright (c) 2026 JoaoVictorCoder. MIT License.")
-        .set("OriginalFilename", "plume.exe")
-        .set("InternalName", "plume");
+        .set("OriginalFilename", "breezedesk.exe")
+        .set("InternalName", "breezedesk");
     if let Err(e) = res.compile() {
         panic!("could not embed Windows resources: {e}");
     }
