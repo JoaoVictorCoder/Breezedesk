@@ -220,6 +220,17 @@ pub enum Kind {
         align: Align,
         /// Font for this text only (otherwise the widget's font is used).
         font: Option<String>,
+        /// Bold / italic: uses the font's bold/italic file when it exists
+        /// (segoeuib.ttf, arialbd.ttf...), otherwise a synthetic bold.
+        #[serde(default)]
+        bold: bool,
+        #[serde(default)]
+        italic: bool,
+        /// Wraps lines longer than this width (pixels).
+        #[serde(alias = "max_width")]
+        wrap: Option<f32>,
+        /// At most this many lines; the last one ends with "…".
+        max_lines: Option<usize>,
     },
     Rect {
         x: f32,
@@ -328,6 +339,34 @@ pub enum Kind {
         #[serde(default)]
         radius: f32,
     },
+    /// Month calendar with today highlighted.
+    Calendar {
+        x: f32,
+        y: f32,
+        w: f32,
+        h: f32,
+        #[serde(default = "default_size")]
+        size: f32,
+        #[serde(default = "white")]
+        color: ColorSpec,
+        /// Color of the weekday names and of days from other months.
+        #[serde(default = "dim")]
+        dim_color: ColorSpec,
+        #[serde(default = "default_today")]
+        today_color: ColorSpec,
+        #[serde(default = "white")]
+        today_text: ColorSpec,
+        /// Month and year above the grid.
+        #[serde(default = "yes")]
+        header: bool,
+        /// Weeks start on Monday (default: Sunday).
+        #[serde(default)]
+        monday_first: bool,
+        /// Months to move from the current one (an expression, e.g. a variable
+        /// changed with !set to browse months).
+        #[serde(default = "zero")]
+        offset: Expr,
+    },
 }
 
 #[derive(Deserialize, Clone, Debug)]
@@ -352,6 +391,9 @@ pub struct Element {
     pub rotate: Option<Expr>,
     /// Rotation pivot in widget coordinates (default: element center).
     pub rotate_center: Option<[f32; 2]>,
+    /// Bars and rings slide to new values over this many milliseconds.
+    #[serde(default)]
+    pub animate: u32,
 }
 
 impl Element {
@@ -418,6 +460,12 @@ impl Element {
                 f("audio_level");
                 color.names(f);
             }
+            Kind::Calendar { color, dim_color, today_color, today_text, offset, .. } => {
+                for c in [color, dim_color, today_color, today_text] {
+                    c.names(f);
+                }
+                e(offset, f);
+            }
         }
     }
 }
@@ -447,6 +495,9 @@ pub struct WidgetConfig {
     pub opacity: u8,
     /// Overall opacity while the mouse is over the widget.
     pub hover_opacity: Option<u8>,
+    /// Size multiplier, on top of the monitor's scaling (125%, 150%...).
+    #[serde(default = "one")]
+    pub scale: f32,
     #[serde(default = "default_font")]
     pub font: String,
     /// Lua (LuaJIT) script, relative to the widget file.
@@ -474,6 +525,8 @@ impl WidgetConfig {
 fn default_bg() -> ColorSpec { ColorSpec::fixed(Rgba { r: 16, g: 16, b: 24, a: 192 }) }
 fn default_track() -> ColorSpec { ColorSpec::fixed(Rgba { r: 255, g: 255, b: 255, a: 40 }) }
 fn white() -> ColorSpec { ColorSpec::fixed(Rgba::WHITE) }
+fn dim() -> ColorSpec { ColorSpec::fixed(Rgba { r: 255, g: 255, b: 255, a: 110 }) }
+fn default_today() -> ColorSpec { ColorSpec::fixed(Rgba { r: 90, g: 200, b: 250, a: 255 }) }
 fn default_size() -> f32 { 14.0 }
 fn default_update() -> u32 { 1000 }
 fn default_interval() -> u64 { 600 }
@@ -525,6 +578,8 @@ pub const EXAMPLES: &[(&str, &[u8])] = &[
     ("weather.lua", include_bytes!("../widgets/weather.lua")),
     ("news.toml", include_bytes!("../widgets/news.toml")),
     ("launcher.toml", include_bytes!("../widgets/launcher.toml")),
+    ("calendar.toml", include_bytes!("../widgets/calendar.toml")),
+    ("processes.toml", include_bytes!("../widgets/processes.toml")),
     ("assets/plume.png", include_bytes!("../widgets/assets/plume.png")),
 ];
 

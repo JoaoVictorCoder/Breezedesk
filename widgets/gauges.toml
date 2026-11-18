@@ -21,6 +21,7 @@ blur = "acrylic"
 
 [[element]]
 type = "ring"
+animate = 400
 x = 40
 y = 56
 radius = 28
@@ -47,6 +48,7 @@ text = "CPU"
 
 [[element]]
 type = "ring"
+animate = 400
 x = 120
 y = 56
 radius = 28
@@ -73,6 +75,7 @@ text = "RAM"
 
 [[element]]
 type = "ring"
+animate = 400
 x = 200
 y = 56
 radius = 28
@@ -99,6 +102,7 @@ text = "GPU"
 
 [[element]]
 type = "ring"
+animate = 400
 x = 280
 y = 56
 radius = 28

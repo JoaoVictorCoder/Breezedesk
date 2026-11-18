@@ -60,6 +60,7 @@ text = "{ram_used} / {ram_total} GB"
 
 [[element]]
 type = "bar"
+animate = 300
 x = 16
 y = 104
 w = 248
@@ -86,6 +87,7 @@ text = "{is_null(gpu) ? 'n/a' : gpu + '%'}   VRAM {default(gpu_mem_used, '-')} G
 
 [[element]]
 type = "bar"
+animate = 300
 x = 16
 y = 138
 w = 248
@@ -112,6 +114,7 @@ text = "{default(disk_free('C:'), '-')} GB free"
 
 [[element]]
 type = "bar"
+animate = 300
 x = 16
 y = 172
 w = 248

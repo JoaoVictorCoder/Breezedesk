@@ -1,0 +1,343 @@
+# Processes using the most CPU, per-core usage and network latency.
+name = "processes"
+x = 340
+y = 410
+width = 320
+height = 232
+update_ms = 1000
+
+[background]
+color = "#0E0F14B0"
+radius = 16
+border = "#FFFFFF22"
+
+[[element]]
+type = "text"
+x = 16
+y = 10
+size = 15
+bold = true
+text = "Top processes"
+
+[[element]]
+type = "text"
+x = 304
+y = 12
+size = 12
+align = "right"
+color = "#FFFFFF88"
+text = "CPU · memory"
+
+[[element]]
+type = "text"
+x = 16
+y = 38
+size = 13
+text = "{default(top_name(0), '')}"
+wrap = 190
+max_lines = 1
+
+[[element]]
+type = "text"
+x = 304
+y = 38
+size = 13
+align = "right"
+color = "#FFFFFFAA"
+text = "{is_null(top_cpu(0)) ? '' : top_cpu(0) + '%   ' + top_mem(0) + ' MB'}"
+
+[[element]]
+type = "text"
+x = 16
+y = 60
+size = 13
+text = "{default(top_name(1), '')}"
+wrap = 190
+max_lines = 1
+
+[[element]]
+type = "text"
+x = 304
+y = 60
+size = 13
+align = "right"
+color = "#FFFFFFAA"
+text = "{is_null(top_cpu(1)) ? '' : top_cpu(1) + '%   ' + top_mem(1) + ' MB'}"
+
+[[element]]
+type = "text"
+x = 16
+y = 82
+size = 13
+text = "{default(top_name(2), '')}"
+wrap = 190
+max_lines = 1
+
+[[element]]
+type = "text"
+x = 304
+y = 82
+size = 13
+align = "right"
+color = "#FFFFFFAA"
+text = "{is_null(top_cpu(2)) ? '' : top_cpu(2) + '%   ' + top_mem(2) + ' MB'}"
+
+[[element]]
+type = "text"
+x = 16
+y = 104
+size = 13
+text = "{default(top_name(3), '')}"
+wrap = 190
+max_lines = 1
+
+[[element]]
+type = "text"
+x = 304
+y = 104
+size = 13
+align = "right"
+color = "#FFFFFFAA"
+text = "{is_null(top_cpu(3)) ? '' : top_cpu(3) + '%   ' + top_mem(3) + ' MB'}"
+
+[[element]]
+type = "text"
+x = 16
+y = 126
+size = 13
+text = "{default(top_name(4), '')}"
+wrap = 190
+max_lines = 1
+
+[[element]]
+type = "text"
+x = 304
+y = 126
+size = 13
+align = "right"
+color = "#FFFFFFAA"
+text = "{is_null(top_cpu(4)) ? '' : top_cpu(4) + '%   ' + top_mem(4) + ' MB'}"
+
+[[element]]
+type = "text"
+x = 16
+y = 148
+size = 11
+color = "#FFFFFF88"
+text = "{cpu_cores} cores"
+
+[[element]]
+type = "bar"
+x = 16
+y = 166
+w = 14
+h = 28
+radius = 3
+vertical = true
+animate = 300
+visible = "cpu_cores > 0"
+value = "default(cpu_core(0), 0)"
+color = "cpu_core(0) > 80 ? '#FF453A' : '#5AC8FA'"
+
+[[element]]
+type = "bar"
+x = 34
+y = 166
+w = 14
+h = 28
+radius = 3
+vertical = true
+animate = 300
+visible = "cpu_cores > 1"
+value = "default(cpu_core(1), 0)"
+color = "cpu_core(1) > 80 ? '#FF453A' : '#5AC8FA'"
+
+[[element]]
+type = "bar"
+x = 52
+y = 166
+w = 14
+h = 28
+radius = 3
+vertical = true
+animate = 300
+visible = "cpu_cores > 2"
+value = "default(cpu_core(2), 0)"
+color = "cpu_core(2) > 80 ? '#FF453A' : '#5AC8FA'"
+
+[[element]]
+type = "bar"
+x = 70
+y = 166
+w = 14
+h = 28
+radius = 3
+vertical = true
+animate = 300
+visible = "cpu_cores > 3"
+value = "default(cpu_core(3), 0)"
+color = "cpu_core(3) > 80 ? '#FF453A' : '#5AC8FA'"
+
+[[element]]
+type = "bar"
+x = 88
+y = 166
+w = 14
+h = 28
+radius = 3
+vertical = true
+animate = 300
+visible = "cpu_cores > 4"
+value = "default(cpu_core(4), 0)"
+color = "cpu_core(4) > 80 ? '#FF453A' : '#5AC8FA'"
+
+[[element]]
+type = "bar"
+x = 106
+y = 166
+w = 14
+h = 28
+radius = 3
+vertical = true
+animate = 300
+visible = "cpu_cores > 5"
+value = "default(cpu_core(5), 0)"
+color = "cpu_core(5) > 80 ? '#FF453A' : '#5AC8FA'"
+
+[[element]]
+type = "bar"
+x = 124
+y = 166
+w = 14
+h = 28
+radius = 3
+vertical = true
+animate = 300
+visible = "cpu_cores > 6"
+value = "default(cpu_core(6), 0)"
+color = "cpu_core(6) > 80 ? '#FF453A' : '#5AC8FA'"
+
+[[element]]
+type = "bar"
+x = 142
+y = 166
+w = 14
+h = 28
+radius = 3
+vertical = true
+animate = 300
+visible = "cpu_cores > 7"
+value = "default(cpu_core(7), 0)"
+color = "cpu_core(7) > 80 ? '#FF453A' : '#5AC8FA'"
+
+[[element]]
+type = "bar"
+x = 160
+y = 166
+w = 14
+h = 28
+radius = 3
+vertical = true
+animate = 300
+visible = "cpu_cores > 8"
+value = "default(cpu_core(8), 0)"
+color = "cpu_core(8) > 80 ? '#FF453A' : '#5AC8FA'"
+
+[[element]]
+type = "bar"
+x = 178
+y = 166
+w = 14
+h = 28
+radius = 3
+vertical = true
+animate = 300
+visible = "cpu_cores > 9"
+value = "default(cpu_core(9), 0)"
+color = "cpu_core(9) > 80 ? '#FF453A' : '#5AC8FA'"
+
+[[element]]
+type = "bar"
+x = 196
+y = 166
+w = 14
+h = 28
+radius = 3
+vertical = true
+animate = 300
+visible = "cpu_cores > 10"
+value = "default(cpu_core(10), 0)"
+color = "cpu_core(10) > 80 ? '#FF453A' : '#5AC8FA'"
+
+[[element]]
+type = "bar"
+x = 214
+y = 166
+w = 14
+h = 28
+radius = 3
+vertical = true
+animate = 300
+visible = "cpu_cores > 11"
+value = "default(cpu_core(11), 0)"
+color = "cpu_core(11) > 80 ? '#FF453A' : '#5AC8FA'"
+
+[[element]]
+type = "bar"
+x = 232
+y = 166
+w = 14
+h = 28
+radius = 3
+vertical = true
+animate = 300
+visible = "cpu_cores > 12"
+value = "default(cpu_core(12), 0)"
+color = "cpu_core(12) > 80 ? '#FF453A' : '#5AC8FA'"
+
+[[element]]
+type = "bar"
+x = 250
+y = 166
+w = 14
+h = 28
+radius = 3
+vertical = true
+animate = 300
+visible = "cpu_cores > 13"
+value = "default(cpu_core(13), 0)"
+color = "cpu_core(13) > 80 ? '#FF453A' : '#5AC8FA'"
+
+[[element]]
+type = "bar"
+x = 268
+y = 166
+w = 14
+h = 28
+radius = 3
+vertical = true
+animate = 300
+visible = "cpu_cores > 14"
+value = "default(cpu_core(14), 0)"
+color = "cpu_core(14) > 80 ? '#FF453A' : '#5AC8FA'"
+
+[[element]]
+type = "bar"
+x = 286
+y = 166
+w = 14
+h = 28
+radius = 3
+vertical = true
+animate = 300
+visible = "cpu_cores > 15"
+value = "default(cpu_core(15), 0)"
+color = "cpu_core(15) > 80 ? '#FF453A' : '#5AC8FA'"
+
+[[element]]
+type = "text"
+x = 16
+y = 204
+size = 12
+color = "#FFFFFFAA"
+text = "Ping 1.1.1.1: {is_null(ping('1.1.1.1')) ? '-' : ping('1.1.1.1') + ' ms'}"

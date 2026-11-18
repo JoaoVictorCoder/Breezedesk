@@ -1,0 +1,62 @@
+# Month calendar in your language. Click the arrows (or scroll) to change the
+# month; click the title to come back to today.
+name = "calendar"
+x = 1060
+y = 440
+width = 260
+height = 250
+update_ms = 60000
+
+[variables]
+month = 0
+
+[background]
+color = "#0E0F14B0"
+radius = 16
+border = "#FFFFFF22"
+
+[[element]]
+type = "calendar"
+x = 10
+y = 6
+w = 240
+h = 236
+size = 13
+offset = "month"
+today_color = "#5AC8FA"
+on_scroll_up = "!set:month = month - 1"
+on_scroll_down = "!set:month = month + 1"
+
+# Click the title: back to this month
+[[element]]
+type = "rect"
+x = 60
+y = 6
+w = 140
+h = 28
+color = "#FFFFFF00"
+hover_color = "#FFFFFF12"
+radius = 8
+on_click = "!set:month = 0"
+
+[[element]]
+type = "text"
+x = 26
+y = 7
+size = 18
+align = "center"
+color = "#FFFFFFAA"
+hover_color = "#FFFFFF"
+text = "‹"
+on_click = "!set:month = month - 1"
+
+[[element]]
+type = "text"
+x = 234
+y = 7
+size = 18
+align = "center"
+color = "#FFFFFFAA"
+hover_color = "#FFFFFF"
+text = "›"
+on_click = "!set:month = month + 1"

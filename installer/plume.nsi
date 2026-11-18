@@ -97,6 +97,9 @@ Section "Install"
 
   SetOutPath "$INSTDIR"
   File "/oname=plume.exe" "${EXE}"
+  !ifdef EDITOR
+    File "/oname=plume-editor.exe" "${EDITOR}"
+  !endif
   File "plume.ico"
   File "/oname=README.md" "../README.md"
   File "/oname=LICENSE.txt" "../LICENSE"
@@ -104,6 +107,16 @@ Section "Install"
   WriteUninstaller "$INSTDIR\uninstall.exe"
 
   CreateShortCut "$SMPROGRAMS\${APP}.lnk" "$INSTDIR\plume.exe" "" "$INSTDIR\plume.ico"
+  !ifdef EDITOR
+    CreateShortCut "$SMPROGRAMS\${APP} Editor.lnk" "$INSTDIR\plume-editor.exe" "" "$INSTDIR\plume.ico"
+  !endif
+
+  ; Double-clicking a .plume widget package installs it.
+  WriteRegStr HKCU "Software\Classes\.plume" "" "Plume.Package"
+  WriteRegStr HKCU "Software\Classes\Plume.Package" "" "Plume widget package"
+  WriteRegStr HKCU "Software\Classes\Plume.Package\DefaultIcon" "" "$INSTDIR\plume.ico"
+  WriteRegStr HKCU "Software\Classes\Plume.Package\shell\open\command" "" '"$INSTDIR\plume.exe" --install-package "%1"'
+  System::Call 'shell32::SHChangeNotify(i 0x08000000, i 0, p 0, p 0)'
 
   ; "Apps & features" entry
   WriteRegStr HKCU "${UNINSTALL_KEY}" "DisplayName" "${APP}"
@@ -132,6 +145,7 @@ Section "Uninstall"
   Call un.ClosePlume
 
   Delete "$INSTDIR\plume.exe"
+  Delete "$INSTDIR\plume-editor.exe"
   Delete "$INSTDIR\plume.ico"
   Delete "$INSTDIR\README.md"
   Delete "$INSTDIR\LICENSE.txt"
@@ -139,6 +153,9 @@ Section "Uninstall"
   Delete "$INSTDIR\uninstall.exe"
   RMDir "$INSTDIR"
   Delete "$SMPROGRAMS\${APP}.lnk"
+  Delete "$SMPROGRAMS\${APP} Editor.lnk"
+  DeleteRegKey HKCU "Software\Classes\.plume"
+  DeleteRegKey HKCU "Software\Classes\Plume.Package"
   DeleteRegKey HKCU "${UNINSTALL_KEY}"
   DeleteRegValue HKCU "${RUN_KEY}" "${APP}"
   DeleteRegKey HKCU "Software\Plume"

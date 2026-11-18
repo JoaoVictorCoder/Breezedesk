@@ -6,14 +6,19 @@ Lightweight desktop widgets for Windows, in the spirit of Rainmeter, written in 
 
 ## Features
 - Transparent widgets drawn on the desktop, always on top or in a normal window layer. You can drag them, make them click-through and set their opacity.
-- Text, rectangles, bars, line graphs, circular gauges, images and an audio visualizer.
+- Text (with wrapping, bold and italic), rectangles, bars, line graphs, circular gauges, images, a month calendar and an audio visualizer.
+- **Plume Editor**: edit widgets visually, without touching TOML.
+- **Widget packages** (`.plume`): share widgets as one file; double-click to install.
+- Sharp on high-DPI screens (125%, 150%, 4K) and across monitors with different scaling.
 - Variables, math and conditions in any text, color or value: `{cpu > 80 ? 'HOT' : 'ok'}`.
-- CPU, RAM, GPU, VRAM, disks, temperatures, network, battery, uptime and date/time.
+- CPU (total and per core), RAM, GPU, VRAM, disks, temperatures, network, ping, battery, top processes, uptime and date/time (in your language).
+- Reads LibreHardwareMonitor sensors when it is running (CPU/GPU temperatures on any PC, fans, voltages...).
 - Now playing (Spotify, browsers, players...) with cover art and media controls.
 - Internet data: any JSON API, plus RSS/Atom feeds.
 - **LuaJIT** scripts for anything the TOML can't express.
 - Click, right-click, middle-click and scroll actions: open apps, URLs and folders, control media and volume, set variables, call Lua.
-- Hover effects, rotation, blur and acrylic backgrounds.
+- Hover effects, smooth animations, rotation, blur and acrylic backgrounds.
+- Snap to screen edges and to other widgets while dragging; lock positions; widgets left on a disconnected monitor come back.
 - Widgets reload automatically when you save their files.
 - A system tray icon, an option to start with Windows, and a log file.
 
@@ -44,8 +49,10 @@ Installed copies check GitHub for a new release 20 seconds after starting and th
 
 ## Usage
 - **Tray icon:** left click shows/hides all widgets; right click opens the menu.
-- **Menu** (tray icon or right click on a widget): *Show/Hide widgets*, *Reload widgets*, *Open widgets folder*, *Install example widgets*, *Open log*, *Start with Windows*, *Check for updates*, *Automatic updates* and *Exit*.
-- **Drag:** drag any part of a widget that is not clickable. Positions are saved in `widgets\positions.state`.
+- **Menu** (tray icon or right click on a widget): *Show/Hide widgets*, *Widgets* (show/hide each one), *Lock positions*, *Edit widgets...*, *Reload widgets*, *Open widgets folder*, *Install example widgets*, *Open log*, *Start with Windows*, *Check for updates*, *Automatic updates* and *Exit*.
+- **Drag:** drag any part of a widget that is not clickable. It snaps to screen edges and other widgets (hold **Shift** to place it freely). Positions and hidden widgets are saved in `widgets\plume.state`.
+- **Edit visually:** *Edit widgets...* opens Plume Editor (also in the Start menu). With *Auto-save* on, changes appear on the desktop while you edit.
+- **Packages:** double-click a `.plume` file to install its widgets (you are asked first). In the editor, *Export as package...* creates one from a widget, with its script and images.
 - **Errors** in widget files show up as a notification and are written to `widgets\plume.log`.
 - **Other folder:** `plume.exe C:\my\widgets` uses that folder instead.
 - **PNG preview** (works on any OS): `plume --preview widgets`
@@ -61,6 +68,8 @@ Installed copies check GitHub for a new release 20 seconds after starting and th
 | `weather.toml` + `weather.lua` | JSON API (open-meteo, no key) + LuaJIT script |
 | `news.toml` | RSS reader with clickable headlines and paging (`!set`) |
 | `launcher.toml` | Image, app buttons with hover effects |
+| `calendar.toml` | Month calendar in your language, browse months with clicks/scroll |
+| `processes.toml` | Top processes, per-core CPU bars (animated), ping |
 
 Set `enabled = false` in a file to turn a widget off.
 
@@ -76,6 +85,7 @@ update_ms = 1000        # how often data is refreshed (16 = 60 fps)
 z = "bottom"            # bottom (on the desktop) | normal | top (always on top)
 opacity = 255           # 0-255
 hover_opacity = 255     # opacity while the mouse is over the widget (optional)
+scale = 1.0             # size multiplier, on top of the monitor's scaling
 draggable = true
 click_through = false
 font = "C:/Windows/Fonts/segoeui.ttf"
@@ -109,13 +119,14 @@ text = "{label}"
 ### Elements
 | `type` | Fields |
 |---|---|
-| `text` | x, y, text, size, color, align (`left`/`center`/`right`), font |
+| `text` | x, y, text, size, color, align (`left`/`center`/`right`), font, bold, italic, wrap (width in pixels), max_lines |
 | `rect` | x, y, w, h, color, radius, border, border_width |
 | `bar` | x, y, w, h, value, min (0), max (100), color, background, radius, vertical |
 | `graph` | x, y, w, h, value, min, max, color, fill, line_width, step |
 | `ring` | x, y (center), radius, thickness, value, min, max, color, background, start (-90), sweep (360), round_caps |
 | `image` | x, y, w, h, path, hover_path, radius, opacity (0-1). PNG, JPG, BMP or ICO. |
 | `spectrum` | x, y, w, h, bars, color, gap, radius. Shows what the speakers are playing. |
+| `calendar` | x, y, w, h, size, color, dim_color, today_color, today_text, header, monday_first, offset (months, an expression) |
 
 Fields every element has:
 
@@ -126,6 +137,7 @@ Fields every element has:
 | `hover_color` | Color used while the mouse is over the element. |
 | `rotate` | Degrees; can be an expression (`"second * 6"`). |
 | `rotate_center` | `[x, y]` pivot, in widget coordinates. Defaults to the element's center. |
+| `animate` | Bars and rings slide to new values over this many milliseconds (e.g. `300`). |
 
 Colors can be fixed (`"#FF8800"`) or expressions (`"cpu > 80 ? '#FF3B30' : accent"`).
 
@@ -141,21 +153,23 @@ weather.current.temp        dotted paths into web data and Lua tables
 ```
 Numbers keep a sensible number of decimals: `cpu` shows none, `ram_used` shows one. Use `round(x, n)` to choose.
 
-**Functions:** `round(x, n)`, `floor`, `ceil`, `abs`, `min`, `max`, `clamp(x, lo, hi)`, `if(c, a, b)`, `default(x, fallback)`, `is_null(x)`, `num`, `str`, `upper`, `lower`, `len`, `trunc(text, n)`, `pad(x, width)`, `fmt_bytes(n)`, `fmt_time(seconds)`, `time(format)`, `disk(drive)`, `disk_used(drive)`, `disk_free(drive)`, `disk_total(drive)`, `get('dynamic.path')`, `web_ready(name)`, `lua(function, args...)`.
+**Functions:** `round(x, n)`, `floor`, `ceil`, `abs`, `min`, `max`, `clamp(x, lo, hi)`, `if(c, a, b)`, `default(x, fallback)`, `is_null(x)`, `num`, `str`, `upper`, `lower`, `len`, `trunc(text, n)`, `pad(x, width)`, `fmt_bytes(n)`, `fmt_time(seconds)`, `time(format, locale)`, `cpu_core(n)`, `top_name(i)`, `top_cpu(i)`, `top_mem(i)`, `topmem_name(i)`, `topmem_cpu(i)`, `topmem_mem(i)`, `ping(host)`, `sensor(name)`, `disk(drive)`, `disk_used(drive)`, `disk_free(drive)`, `disk_total(drive)`, `get('dynamic.path')`, `web_ready(name)`, `lua(function, args...)`.
 
 **Variables:**
 
 | | |
 |---|---|
-| CPU / memory | `cpu`, `ram`, `ram_used`, `ram_total`, `ram_free` (GB) |
+| CPU / memory | `cpu`, `cpu_cores`, `cpu_core(n)` (n from 0), `ram`, `ram_used`, `ram_total`, `ram_free` (GB) |
+| Processes | `top_name(i)`, `top_cpu(i)` (%), `top_mem(i)` (MB): i-th program using the most CPU (from 0). `topmem_*` sorts by memory. |
+| Network latency | `ping('1.1.1.1')` in ms (`null` without an answer), measured every 5 s |
 | GPU | `gpu` (%), `gpu_mem` (%), `gpu_mem_used`, `gpu_mem_total` (GB) |
-| Temperatures | `cpu_temp`, `gpu_temp` (°C) |
+| Temperatures | `cpu_temp`, `gpu_temp` (°C); `sensor('CPU Package')` reads any LibreHardwareMonitor sensor by name or identifier |
 | Disk | `disk`, `disk_used`, `disk_free`, `disk_total` (drive C:, or use the functions) |
 | Network | `net_down`, `net_up` (text, e.g. "1.2 MB/s"), `net_down_bytes`, `net_up_bytes` |
 | Battery | `has_battery`, `battery`, `battery_charging`, `battery_plugged`, `battery_time` |
 | Media | `media_title`, `media_artist`, `media_album`, `media_playing`, `media_active`, `media_status`, `media_position`, `media_duration` (s), `media_progress` (%), `media_cover` (use as an image `path`) |
 | Audio | `audio_level` (0-100) |
-| Time | `hour`, `hour12`, `minute`, `second`, `day`, `month`, `year`, `weekday`, `uptime`, `uptime_s`, `time('%H:%M')` ([chrono format](https://docs.rs/chrono/latest/chrono/format/strftime/)) |
+| Time | `hour`, `hour12`, `minute`, `second`, `day`, `month`, `year`, `weekday`, `uptime`, `uptime_s`, `time('%H:%M')` ([chrono format](https://docs.rs/chrono/latest/chrono/format/strftime/)). Day and month names follow the Windows language; `time('%A', 'en_US')` picks another. |
 
 A sensor that is not available gives `null`, which shows as empty text. Use `default(gpu_temp, '-')` to show something else.
 
@@ -192,7 +206,7 @@ function clicked() plume.set("count", (plume.get("count") or 0) + 1) end
 - **Sandbox:** scripts get `string`, `table`, `math`, `bit`, `jit` and `os.time/date/clock`. File access (`io`), `require` and running programs are not available, so a downloaded widget cannot touch your files.
 
 ## Notes and limits
-- **CPU temperature** uses Windows' ACPI sensor, which many PCs do not expose (or only to admin). **GPU temperature** works with NVIDIA drivers. A missing sensor shows as `null`.
+- **Temperatures:** with [LibreHardwareMonitor](https://github.com/LibreHardwareMonitor/LibreHardwareMonitor) running, CPU and GPU temperatures (any brand) come from it. Without it, the CPU temperature uses Windows' ACPI sensor, which many PCs do not expose, and the GPU temperature works with NVIDIA drivers. A missing sensor shows as `null`.
 - **Blur/acrylic** uses the same Windows API as Rainmeter's blur plugins. On some Windows 10 builds acrylic makes dragging feel slow; use `blur` there.
 - **Media** works with any app that shows up in the Windows media overlay.
 - Symbols missing from the chosen font (♪ ☀ ⏯ ...) are taken automatically from Segoe UI Symbol or Segoe UI Emoji.
@@ -210,6 +224,9 @@ function clicked() plume.set("count", (plume.get("count") or 0) + 1) end
 | `src/script.rs` | LuaJIT |
 | `src/actions.rs` | Click actions |
 | `src/update.rs` | Automatic updates from GitHub Releases |
+| `src/package.rs` | `.plume` widget packages (shared with the editor) |
+| `src/locale.rs`, `src/lhm.rs`, `src/ping.rs` | Date language, LibreHardwareMonitor sensors, ping |
+| `editor/` | Plume Editor (egui), a separate program: `plume-editor.exe` |
 | `src/win.rs`, `src/tray.rs` | Windows, mouse, timers, auto-reload, blur, tray, settings |
 | `installer/plume.nsi` | Windows installer (NSIS) |
 | `scripts/` | Version picking and packaging (used by the workflows) |

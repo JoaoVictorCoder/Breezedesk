@@ -240,3 +240,12 @@ pub fn auto_update_enabled() -> bool {
 pub fn set_auto_update(on: bool) {
     write_dword("AutoUpdate", on as u32);
 }
+
+/// Widgets cannot be dragged while positions are locked.
+pub fn positions_locked() -> bool {
+    read_dword("LockPositions").unwrap_or(0) != 0
+}
+
+pub fn set_positions_locked(on: bool) {
+    write_dword("LockPositions", on as u32);
+}

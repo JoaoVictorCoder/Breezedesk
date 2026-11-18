@@ -14,7 +14,7 @@ use crate::update;
 use crate::web::Web;
 use crate::widget::{Mouse, Widget};
 use std::cell::RefCell;
-use std::collections::{HashMap, VecDeque};
+use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
 use std::ptr::{null, null_mut};
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -26,13 +26,14 @@ use windows_sys::Win32::Graphics::Gdi::*;
 use windows_sys::Win32::System::LibraryLoader::{GetModuleHandleW, GetProcAddress};
 use windows_sys::Win32::System::Threading::GetCurrentThreadId;
 use windows_sys::Win32::UI::Accessibility::{SetWinEventHook, UnhookWinEvent, HWINEVENTHOOK};
-use windows_sys::Win32::UI::HiDpi::{SetProcessDpiAwarenessContext, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2};
+use windows_sys::Win32::UI::HiDpi::{GetDpiForWindow, SetProcessDpiAwarenessContext, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2};
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::*;
 use windows_sys::Win32::UI::Shell::ShellExecuteW;
 use windows_sys::Win32::UI::WindowsAndMessaging::*;
 
 const TIMER_UPDATE: usize = 1;
 const TIMER_WATCH: usize = 2;
+const TIMER_ANIM: usize = 3;
 const WM_APP_RELOAD: u32 = WM_APP + 1;
 const WM_APP_ACTIONS: u32 = WM_APP + 3;
 const WM_MOUSELEAVE: u32 = 0x02A3;
@@ -46,6 +47,15 @@ const MENU_LOG: usize = 7;
 const MENU_CHECK_UPDATE: usize = 8;
 const MENU_UPDATE: usize = 9;
 const MENU_AUTO_UPDATE: usize = 10;
+const MENU_LOCK: usize = 11;
+const MENU_EDITOR: usize = 12;
+/// Menu ids for the "Widgets" submenu: MENU_WIDGET + widget index.
+const MENU_WIDGET: usize = 1000;
+const WM_DPICHANGED: u32 = 0x02E0;
+/// Distance (logical pixels) at which a dragged widget snaps to an edge.
+const SNAP: i32 = 12;
+/// How often the cached base image of a widget with a visualizer is redrawn.
+const BASE_REFRESH_MS: u128 = 250;
 const WM_APP_UPDATE_FOUND: u32 = WM_APP + 4;
 const WM_APP_UPDATE_NONE: u32 = WM_APP + 5;
 const WM_APP_UPDATE_READY: u32 = WM_APP + 6;
@@ -110,9 +120,48 @@ impl Drop for Surface {
 struct WinWidget {
     w: Widget,
     hwnd: HWND,
+    /// Logical → device pixels (monitor DPI × widget `scale`).
+    scale: f32,
     pixmap: Pixmap,
     surface: Surface,
     shown: bool,
+    /// Widgets with a visualizer: everything else, drawn less often.
+    base: Option<Pixmap>,
+    base_at: Option<std::time::Instant>,
+    /// Hash of the last frame sent to the window (identical frames are skipped).
+    last_frame: u64,
+    animating: bool,
+}
+
+impl WinWidget {
+    fn device_size(&self) -> (u32, u32) {
+        device_size(&self.w.cfg, self.scale)
+    }
+
+    /// (Re)creates the drawing buffers for the current scale.
+    fn resize_buffers(&mut self) -> bool {
+        let (w, h) = self.device_size();
+        match (Pixmap::new(w, h), Surface::new(w, h)) {
+            (Some(p), Some(sf)) => {
+                self.pixmap = p;
+                self.surface = sf;
+                self.base = None;
+                self.last_frame = 0;
+                true
+            }
+            _ => false,
+        }
+    }
+}
+
+fn device_size(cfg: &config::WidgetConfig, scale: f32) -> (u32, u32) {
+    (((cfg.width as f32 * scale).round() as u32).max(1), ((cfg.height as f32 * scale).round() as u32).max(1))
+}
+
+/// Monitor scaling of a window (1.0 = 100%, 1.5 = 150%...).
+fn dpi_scale(hwnd: HWND) -> f32 {
+    let dpi = unsafe { GetDpiForWindow(hwnd) };
+    if dpi == 0 { 1.0 } else { dpi as f32 / 96.0 }
 }
 
 impl Drop for WinWidget {
@@ -128,8 +177,10 @@ struct App {
     fonts: Fonts,
     images: Images,
     web: Web,
-    positions: HashMap<String, (i32, i32)>,
+    state: SavedState,
     hidden: bool,
+    /// Widgets cannot be dragged.
+    locked: bool,
     /// A newer release found on GitHub.
     update: Option<update::Release>,
     /// Download/installation in progress.
@@ -161,27 +212,35 @@ fn queue_actions(widget: &str, list: Vec<String>) {
     unsafe { PostThreadMessageW(MAIN_THREAD.load(Ordering::Relaxed), WM_APP_ACTIONS, 0, 0) };
 }
 
-fn positions_path(dir: &Path) -> PathBuf {
-    dir.join("positions.state") // not .toml, so it is not loaded as a widget
+/// What Plume remembers between runs (in `plume.state`, next to the widgets):
+/// where each widget was dragged and which ones were hidden from the menu.
+#[derive(Default, serde::Serialize, serde::Deserialize)]
+struct SavedState {
+    #[serde(default)]
+    positions: std::collections::BTreeMap<String, [i32; 2]>,
+    #[serde(default)]
+    hidden: std::collections::BTreeSet<String>,
 }
 
-fn load_positions(dir: &Path) -> HashMap<String, (i32, i32)> {
-    std::fs::read_to_string(positions_path(dir))
-        .ok()
-        .and_then(|s| toml::from_str::<HashMap<String, [i32; 2]>>(&s).ok())
-        .map(|m| m.into_iter().map(|(k, [x, y])| (k, (x, y))).collect())
-        .unwrap_or_default()
+fn state_path(dir: &Path) -> PathBuf {
+    dir.join("plume.state") // not .toml, so it is not loaded as a widget
 }
 
-fn save_positions(dir: &Path, pos: &HashMap<String, (i32, i32)>) {
-    let mut out = String::from("# Generated automatically when widgets are dragged.\n");
-    let mut keys: Vec<_> = pos.keys().collect();
-    keys.sort();
-    for k in keys {
-        let (x, y) = pos[k];
-        out.push_str(&format!("{k:?} = [{x}, {y}]\n"));
+fn load_state(dir: &Path) -> SavedState {
+    if let Some(st) = std::fs::read_to_string(state_path(dir)).ok().and_then(|s| toml::from_str(&s).ok()) {
+        return st;
     }
-    let _ = std::fs::write(positions_path(dir), out);
+    // Older versions saved only positions, in positions.state.
+    let positions = std::fs::read_to_string(dir.join("positions.state"))
+        .ok()
+        .and_then(|s| toml::from_str(&s).ok())
+        .unwrap_or_default();
+    SavedState { positions, ..Default::default() }
+}
+
+fn save_state(dir: &Path, st: &SavedState) {
+    let body = toml::to_string(st).unwrap_or_default();
+    let _ = std::fs::write(state_path(dir), format!("# Generated by Plume: widget positions and hidden widgets.\n{body}"));
 }
 
 /// Files that trigger an automatic reload when they change.
@@ -191,7 +250,7 @@ fn snapshot(dir: &Path) -> Vec<(PathBuf, Option<SystemTime>, u64)> {
         for e in rd.flatten() {
             let p = e.path();
             let name = e.file_name().to_string_lossy().to_lowercase();
-            if name.starts_with('.') || name == "positions.state" || name == "plume.log" {
+            if name.starts_with('.') || name.ends_with(".state") || name == "plume.log" {
                 continue;
             }
             let Ok(md) = e.metadata() else { continue };
@@ -228,7 +287,8 @@ impl App {
             let (mut w, errs) = Widget::new(cfg, &self.metrics);
             errors.extend(errs);
             jobs.extend(w.web_jobs(&self.metrics, &self.web));
-            match create_window(w, &self.positions) {
+            let shown = !self.state.hidden.contains(&w.cfg.name);
+            match create_window(w, &self.state.positions, shown) {
                 Some(ww) => self.widgets.push(ww),
                 None => errors.push("Failed to create a widget window.".into()),
             }
@@ -244,6 +304,7 @@ impl App {
         self.watch = snapshot(&self.dir);
         self.metrics.refresh();
         for i in 0..self.widgets.len() {
+            ensure_visible(self.widgets[i].hwnd);
             self.paint(i, true);
         }
         if self.hidden {
@@ -326,6 +387,12 @@ impl App {
         if let Some(i) = self.index_by_name(name) {
             let shown = !self.widgets[i].shown;
             self.widgets[i].shown = shown;
+            if shown {
+                self.state.hidden.remove(name);
+            } else {
+                self.state.hidden.insert(name.to_string());
+            }
+            save_state(&self.dir, &self.state);
             self.show(i, shown && !self.hidden);
             if shown {
                 self.paint(i, true);
@@ -333,7 +400,7 @@ impl App {
         }
     }
 
-    /// `update` = recompute data (timer); otherwise only redraw (hover).
+    /// `update` = recompute data (timer); otherwise only redraw (hover, animation).
     fn paint(&mut self, i: usize, update: bool) {
         if self.hidden || !self.widgets[i].shown {
             return; // no CPU spent on invisible widgets
@@ -345,7 +412,51 @@ impl App {
             let acts = std::mem::take(&mut ww.w.pending_actions);
             queue_actions(&ww.w.cfg.name, acts);
         }
-        render::render(&mut ww.w, &mut ww.pixmap, &self.metrics, &self.web, &mut self.fonts, &mut self.images);
+        let (m, web, fonts, images, s) = (&self.metrics, &self.web, &mut self.fonts, &mut self.images, ww.scale);
+        let has_live = ww.w.cfg.elements.iter().any(render::is_live);
+        let animating = if has_live {
+            // Redraw the slow part only now and then; the visualizer on top every frame.
+            let stale = ww.base_at.is_none_or(|t| t.elapsed().as_millis() >= BASE_REFRESH_MS) || !update;
+            let mut anim = ww.animating;
+            if stale || ww.base.is_none() {
+                let mut base = ww.base.take().unwrap_or_else(|| ww.pixmap.clone());
+                anim = render::render(&mut ww.w, &mut base, m, web, fonts, images, s, render::Layer::Base);
+                ww.base = Some(base);
+                ww.base_at = Some(std::time::Instant::now());
+            }
+            if let Some(base) = &ww.base {
+                ww.pixmap.data_mut().copy_from_slice(base.data());
+            }
+            render::render(&mut ww.w, &mut ww.pixmap, m, web, fonts, images, s, render::Layer::Live);
+            anim
+        } else {
+            render::render(&mut ww.w, &mut ww.pixmap, m, web, fonts, images, s, render::Layer::All)
+        };
+        if animating != ww.animating {
+            ww.animating = animating;
+            unsafe {
+                if animating {
+                    SetTimer(ww.hwnd, TIMER_ANIM, 16, None);
+                } else {
+                    KillTimer(ww.hwnd, TIMER_ANIM);
+                }
+            }
+        }
+
+        let cfg = &ww.w.cfg;
+        let opacity = if ww.w.mouse_over { cfg.hover_opacity.unwrap_or(cfg.opacity) } else { cfg.opacity };
+        // Nothing changed since the last frame (most seconds for most widgets): skip.
+        let frame = {
+            use std::hash::{Hash, Hasher};
+            let mut h = std::collections::hash_map::DefaultHasher::new();
+            ww.pixmap.data().hash(&mut h);
+            opacity.hash(&mut h);
+            h.finish()
+        };
+        if frame == ww.last_frame {
+            return;
+        }
+        ww.last_frame = frame;
 
         // tiny-skia uses premultiplied RGBA; Windows wants premultiplied BGRA.
         let src = ww.pixmap.data();
@@ -356,9 +467,8 @@ impl App {
             d[2] = s[0];
             d[3] = s[3];
         }
-        let cfg = &ww.w.cfg;
-        let opacity = if ww.w.mouse_over { cfg.hover_opacity.unwrap_or(cfg.opacity) } else { cfg.opacity };
-        let size = SIZE { cx: cfg.width as i32, cy: cfg.height as i32 };
+        let (dw, dh) = ww.device_size();
+        let size = SIZE { cx: dw as i32, cy: dh as i32 };
         let origin = POINT { x: 0, y: 0 };
         let blend = BLENDFUNCTION {
             BlendOp: AC_SRC_OVER as u8,
@@ -371,14 +481,42 @@ impl App {
         }
     }
 
+    /// The monitor scaling of a widget changed (moved to another monitor, or
+    /// the Windows scaling setting changed).
+    fn rescale(&mut self, i: usize, suggested: Option<RECT>) {
+        let ww = &mut self.widgets[i];
+        let scale = dpi_scale(ww.hwnd) * ww.w.cfg.scale.max(0.1);
+        if (scale - ww.scale).abs() < 1e-3 && suggested.is_none() {
+            return;
+        }
+        ww.scale = scale;
+        if !ww.resize_buffers() {
+            return;
+        }
+        let (w, h) = ww.device_size();
+        unsafe {
+            match suggested {
+                Some(r) => SetWindowPos(ww.hwnd, null_mut(), r.left, r.top, w as i32, h as i32, SWP_NOZORDER | SWP_NOACTIVATE),
+                None => SetWindowPos(ww.hwnd, null_mut(), 0, 0, w as i32, h as i32, SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE),
+            };
+            if let Some(bg) = &ww.w.cfg.background {
+                if bg.blur != Blur::None {
+                    apply_blur(ww.hwnd, bg, w, h, scale);
+                }
+            }
+        }
+        self.paint(i, false);
+    }
+
     /// Mouse position (widget coordinates) → hover state; redraws if it changed.
     fn hover(&mut self, i: usize, pos: Option<(i32, i32)>) {
+        let s = self.widgets[i].scale;
         let w = &mut self.widgets[i].w;
         if !w.has_hover_effects() {
             return;
         }
         let (over, el) = match pos {
-            Some((x, y)) => (true, w.element_at(x as f32, y as f32)),
+            Some((x, y)) => (true, w.element_at(x as f32 / s, y as f32 / s)),
             None => (false, None),
         };
         if over != w.mouse_over || el != w.hovered {
@@ -389,8 +527,9 @@ impl App {
     }
 
     fn mouse(&mut self, i: usize, x: i32, y: i32, button: Mouse) -> bool {
+        let s = self.widgets[i].scale;
         let w = &self.widgets[i].w;
-        let Some(el) = w.element_at(x as f32, y as f32) else { return false };
+        let Some(el) = w.element_at(x as f32 / s, y as f32 / s) else { return false };
         let list = w.actions(el, button, &self.metrics, &self.web);
         if list.is_empty() {
             return false;
@@ -400,9 +539,9 @@ impl App {
     }
 }
 
-fn create_window(w: Widget, positions: &HashMap<String, (i32, i32)>) -> Option<WinWidget> {
+fn create_window(w: Widget, positions: &std::collections::BTreeMap<String, [i32; 2]>, shown: bool) -> Option<WinWidget> {
     let cfg = &w.cfg;
-    let (x, y) = positions.get(&cfg.name).copied().unwrap_or((cfg.x, cfg.y));
+    let [x, y] = positions.get(&cfg.name).copied().unwrap_or([cfg.x, cfg.y]);
     let mut ex = WS_EX_LAYERED | WS_EX_TOOLWINDOW; // TOOLWINDOW = no taskbar button
     if cfg.z == ZOrder::Top {
         ex |= WS_EX_TOPMOST;
@@ -412,7 +551,6 @@ fn create_window(w: Widget, positions: &HashMap<String, (i32, i32)>) -> Option<W
     }
     let class = wide("PlumeWidget");
     let title = wide(&cfg.name);
-    let (width, height) = (cfg.width.max(1), cfg.height.max(1));
     let hwnd = unsafe {
         CreateWindowExW(
             ex,
@@ -421,8 +559,8 @@ fn create_window(w: Widget, positions: &HashMap<String, (i32, i32)>) -> Option<W
             WS_POPUP,
             x,
             y,
-            width as i32,
-            height as i32,
+            cfg.width.max(1) as i32,
+            cfg.height.max(1) as i32,
             null_mut(),
             null_mut(),
             GetModuleHandleW(null()),
@@ -432,24 +570,104 @@ fn create_window(w: Widget, positions: &HashMap<String, (i32, i32)>) -> Option<W
     if hwnd.is_null() {
         return None;
     }
+    // Scale for the monitor the widget is on (125%, 150%... in Windows settings).
+    let scale = dpi_scale(hwnd) * cfg.scale.max(0.1);
+    let (width, height) = device_size(cfg, scale);
     let pixmap = Pixmap::new(width, height)?;
     let surface = Surface::new(width, height)?;
     unsafe {
         if let Some(bg) = &cfg.background {
             if bg.blur != Blur::None {
-                apply_blur(hwnd, bg, width, height);
+                apply_blur(hwnd, bg, width, height, scale);
             }
         }
         let insert_after = if cfg.z == ZOrder::Bottom { HWND_BOTTOM } else { null_mut() };
         let flags = SWP_NOMOVE
-            | SWP_NOSIZE
             | SWP_NOACTIVATE
-            | SWP_SHOWWINDOW
+            | if shown { SWP_SHOWWINDOW } else { 0 }
             | if cfg.z == ZOrder::Bottom { 0 } else { SWP_NOZORDER };
-        SetWindowPos(hwnd, insert_after, 0, 0, 0, 0, flags);
+        SetWindowPos(hwnd, insert_after, 0, 0, width as i32, height as i32, flags);
         arm_timer(hwnd, cfg.update_ms);
     }
-    Some(WinWidget { w, hwnd, pixmap, surface, shown: true })
+    Some(WinWidget {
+        w,
+        hwnd,
+        scale,
+        pixmap,
+        surface,
+        shown,
+        base: None,
+        base_at: None,
+        last_frame: 0,
+        animating: false,
+    })
+}
+
+/// Moves a widget back onto a screen if it is (almost) entirely outside of
+/// every monitor, e.g. after a monitor was disconnected. The saved position is
+/// kept, so it returns when that monitor comes back.
+fn ensure_visible(hwnd: HWND) {
+    unsafe {
+        let mut r = RECT { left: 0, top: 0, right: 0, bottom: 0 };
+        GetWindowRect(hwnd, &mut r);
+        let mon = MonitorFromRect(&r, MONITOR_DEFAULTTONEAREST);
+        let mut mi: MONITORINFO = std::mem::zeroed();
+        mi.cbSize = std::mem::size_of::<MONITORINFO>() as u32;
+        if GetMonitorInfoW(mon, &mut mi) == 0 {
+            return;
+        }
+        let work = mi.rcWork;
+        let (w, h) = (r.right - r.left, r.bottom - r.top);
+        let ix = (r.right.min(work.right) - r.left.max(work.left)).max(0);
+        let iy = (r.bottom.min(work.bottom) - r.top.max(work.top)).max(0);
+        // Visible enough to grab (a quarter of it, or 40 px each way)?
+        if ix * iy * 4 >= w * h || (ix >= 40 && iy >= 40) {
+            return;
+        }
+        let x = r.left.clamp(work.left, (work.right - w).max(work.left));
+        let y = r.top.clamp(work.top, (work.bottom - h).max(work.top));
+        SetWindowPos(hwnd, null_mut(), x, y, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+    }
+}
+
+/// While dragging: snaps the widget to the screen edges and to other widgets.
+/// Hold Shift to place it freely.
+fn snap(a: &App, hwnd: HWND, r: &mut RECT) {
+    if unsafe { GetKeyState(VK_SHIFT as i32) } < 0 {
+        return;
+    }
+    let Some(i) = a.index_of(hwnd) else { return };
+    let d = (SNAP as f32 * a.widgets[i].scale) as i32;
+    let (w, h) = (r.right - r.left, r.bottom - r.top);
+    let mut xs: Vec<i32> = Vec::new(); // x positions to snap the left edge to
+    let mut ys: Vec<i32> = Vec::new();
+    unsafe {
+        let mon = MonitorFromRect(r, MONITOR_DEFAULTTONEAREST);
+        let mut mi: MONITORINFO = std::mem::zeroed();
+        mi.cbSize = std::mem::size_of::<MONITORINFO>() as u32;
+        if GetMonitorInfoW(mon, &mut mi) != 0 {
+            let wk = mi.rcWork;
+            xs.extend([wk.left, wk.right - w]);
+            ys.extend([wk.top, wk.bottom - h]);
+        }
+        for other in a.widgets.iter().filter(|o| o.hwnd != hwnd && o.shown) {
+            let mut o = RECT { left: 0, top: 0, right: 0, bottom: 0 };
+            GetWindowRect(other.hwnd, &mut o);
+            let gap = (4.0 * a.widgets[i].scale) as i32;
+            // Side by side, or aligned edges.
+            xs.extend([o.right + gap, o.left - w - gap, o.left, o.right - w]);
+            ys.extend([o.bottom + gap, o.top - h - gap, o.top, o.bottom - h]);
+        }
+    }
+    let best = |cur: i32, list: &[i32]| list.iter().copied().filter(|v| (v - cur).abs() <= d).min_by_key(|v| (v - cur).abs());
+    if let Some(x) = best(r.left, &xs) {
+        r.left = x;
+        r.right = x + w;
+    }
+    if let Some(y) = best(r.top, &ys) {
+        r.top = y;
+        r.bottom = y + h;
+    }
 }
 
 /// Schedules the next update. Slow widgets (>= 0.5 s) are lined up with the
@@ -468,7 +686,7 @@ fn arm_timer(hwnd: HWND, update_ms: u32) {
 
 /// Blur/acrylic behind the widget (undocumented but stable API, also used by
 /// Rainmeter plugins), clipped to the rounded background.
-unsafe fn apply_blur(hwnd: HWND, bg: &Background, w: u32, h: u32) {
+unsafe fn apply_blur(hwnd: HWND, bg: &Background, w: u32, h: u32, scale: f32) {
     #[repr(C)]
     struct AccentPolicy {
         state: u32,
@@ -504,7 +722,7 @@ unsafe fn apply_blur(hwnd: HWND, bg: &Background, w: u32, h: u32) {
     };
     set(hwnd, &mut data);
     if bg.radius > 0.0 {
-        let d = (bg.radius * 2.0) as i32;
+        let d = (bg.radius * 2.0 * scale) as i32;
         let rgn = CreateRoundRectRgn(0, 0, w as i32 + 1, h as i32 + 1, d, d);
         SetWindowRgn(hwnd, rgn, TRUE); // the window owns the region now
     }
@@ -745,12 +963,28 @@ fn show_menu(hwnd: HWND) {
             Some(r) => format!("Update to {}", update::fmt(r.version)),
             None => "Check for updates".to_string(),
         };
+        let locked = with_app(|a| a.locked).unwrap_or(false);
+        // "Widgets" submenu: one checkbox per widget.
+        let names: Vec<(String, bool)> =
+            with_app(|a| a.widgets.iter().map(|w| (w.w.cfg.name.clone(), w.shown)).collect()).unwrap_or_default();
+        let sub = CreatePopupMenu();
+        for (i, (name, shown)) in names.iter().enumerate() {
+            let l = wide(name);
+            AppendMenuW(sub, MF_STRING | if *shown { MF_CHECKED } else { MF_UNCHECKED }, MENU_WIDGET + i, l.as_ptr());
+        }
+        if names.is_empty() {
+            let l = wide("(no widgets)");
+            AppendMenuW(sub, MF_STRING | MF_GRAYED, 0, l.as_ptr());
+        }
         let menu = CreatePopupMenu();
         let items: Vec<(usize, &str, u32)> = vec![
             (0, &title, MF_STRING | MF_GRAYED),
             (0, "", MF_SEPARATOR),
             (MENU_TOGGLE, if hidden { "Show widgets" } else { "Hide widgets" }, MF_STRING),
+            (sub as usize, "Widgets", MF_POPUP),
+            (MENU_LOCK, "Lock positions", MF_STRING | if locked { MF_CHECKED } else { MF_UNCHECKED }),
             (0, "", MF_SEPARATOR),
+            (MENU_EDITOR, "Edit widgets...", MF_STRING),
             (MENU_RELOAD, "Reload widgets", MF_STRING),
             (MENU_EDIT, "Open widgets folder", MF_STRING),
             (MENU_EXAMPLES, "Install example widgets", MF_STRING),
@@ -776,10 +1010,23 @@ fn show_menu(hwnd: HWND) {
         SetForegroundWindow(hwnd);
         let cmd = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_NONOTIFY | TPM_RIGHTBUTTON, pt.x, pt.y, 0, hwnd, null())
             as usize;
-        DestroyMenu(menu);
+        DestroyMenu(menu); // also destroys the submenu
         // Microsoft-recommended workaround for menus opened from the tray.
         PostMessageW(hwnd, WM_NULL, 0, 0);
         match cmd {
+            id if (MENU_WIDGET..MENU_WIDGET + names.len()).contains(&id) => {
+                let name = names[id - MENU_WIDGET].0.clone();
+                with_app(|a| a.toggle_widget(&name));
+            }
+            MENU_LOCK => {
+                tray::set_positions_locked(!locked);
+                with_app(|a| a.locked = !locked);
+            }
+            MENU_EDITOR => {
+                if let Some(dir) = with_app(|a| a.dir.clone()) {
+                    open_editor(&dir);
+                }
+            }
             MENU_TOGGLE => {
                 with_app(|a| a.set_hidden(!a.hidden));
             }
@@ -815,6 +1062,20 @@ fn show_menu(hwnd: HWND) {
             }
             MENU_EXIT => PostQuitMessage(0),
             _ => {}
+        }
+    }
+}
+
+/// Starts the visual editor (plume-editor.exe, next to plume.exe).
+fn open_editor(dir: &Path) {
+    let editor = std::env::current_exe().ok().and_then(|p| Some(p.parent()?.join("plume-editor.exe")));
+    match editor.filter(|p| p.exists()) {
+        Some(p) => {
+            let arg = format!("\"{}\"", dir.display());
+            shell_open(&p.to_string_lossy(), Some(&arg));
+        }
+        None => {
+            with_app(|a| a.notify("Plume", "The editor (plume-editor.exe) was not found next to plume.exe.", true));
         }
     }
 }
@@ -901,6 +1162,10 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) 
             });
             0
         }
+        WM_TIMER if wp == TIMER_ANIM => {
+            with_app(|a| a.index_of(hwnd).map(|i| a.paint(i, false)));
+            0
+        }
         // Auto-reload when a widget file changes.
         WM_TIMER if wp == TIMER_WATCH => {
             with_app(|a| {
@@ -918,8 +1183,10 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) 
             let (sx, sy) = point_of(lp);
             let hit = with_app(|a| {
                 let (i, x, y) = locate(a, hwnd, sx, sy)?;
+                let s = a.widgets[i].scale;
                 let w = &a.widgets[i].w;
-                Some(if w.element_at(x as f32, y as f32).is_some() || !w.cfg.draggable { HTCLIENT } else { HTCAPTION })
+                let on_element = w.element_at(x as f32 / s, y as f32 / s).is_some();
+                Some(if on_element || !w.cfg.draggable || a.locked { HTCLIENT } else { HTCAPTION })
             });
             hit.flatten().unwrap_or(HTCLIENT) as LRESULT
         }
@@ -928,8 +1195,9 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) 
                 let mut pt = POINT { x: 0, y: 0 };
                 GetCursorPos(&mut pt);
                 let (i, x, y) = locate(a, hwnd, pt.x, pt.y)?;
+                let s = a.widgets[i].scale;
                 let w = &a.widgets[i].w;
-                let el = w.element_at(x as f32, y as f32)?;
+                let el = w.element_at(x as f32 / s, y as f32 / s)?;
                 Some(!w.cfg.elements[el].on_click.is_empty())
             });
             if hand.flatten().unwrap_or(false) {
@@ -955,8 +1223,8 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) 
             GetCursorPos(&mut pt);
             with_app(|a| {
                 let (i, x, y) = locate(a, hwnd, pt.x, pt.y)?;
-                let cfg = &a.widgets[i].w.cfg;
-                let inside = x >= 0 && y >= 0 && x < cfg.width as i32 && y < cfg.height as i32;
+                let (dw, dh) = a.widgets[i].device_size();
+                let inside = x >= 0 && y >= 0 && x < dw as i32 && y < dh as i32;
                 // Moving between the "title bar" part and a clickable element also
                 // sends a leave message: only really leave if the cursor is outside.
                 a.hover(i, inside.then_some((x, y)));
@@ -1019,11 +1287,33 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) 
             with_app(|a| {
                 if let Some(i) = a.index_of(hwnd) {
                     let name = a.widgets[i].w.cfg.name.clone();
-                    a.positions.insert(name, (r.left, r.top));
-                    save_positions(&a.dir, &a.positions);
+                    a.state.positions.insert(name, [r.left, r.top]);
+                    save_state(&a.dir, &a.state);
                 }
             });
             0
+        }
+        // Being dragged: snap to edges.
+        WM_MOVING => {
+            let r = &mut *(lp as *mut RECT);
+            with_app(|a| snap(a, hwnd, r));
+            1
+        }
+        // Moved to a monitor with another scaling, or the scaling changed.
+        WM_DPICHANGED => {
+            let r = *(lp as *const RECT);
+            with_app(|a| a.index_of(hwnd).map(|i| a.rescale(i, Some(r))));
+            0
+        }
+        // Monitors were added/removed/rearranged: bring lost widgets back.
+        WM_DISPLAYCHANGE => {
+            with_app(|a| {
+                for i in 0..a.widgets.len() {
+                    a.rescale(i, None);
+                    ensure_visible(a.widgets[i].hwnd);
+                }
+            });
+            DefWindowProcW(hwnd, msg, wp, lp)
         }
         _ => DefWindowProcW(hwnd, msg, wp, lp),
     }
@@ -1079,7 +1369,7 @@ pub fn run(dir: PathBuf) {
         h
     };
 
-    let positions = load_positions(&dir);
+    let state = load_state(&dir);
     APP.with(|a| {
         *a.borrow_mut() = Some(App {
             dir,
@@ -1088,8 +1378,9 @@ pub fn run(dir: PathBuf) {
             fonts: Fonts::default(),
             images: Images::default(),
             web: Web::default(),
-            positions,
+            state,
             hidden: false,
+            locked: tray::positions_locked(),
             tray: (!tray_hwnd.is_null()).then(|| Tray::new(tray_hwnd)),
             watch: Vec::new(),
             desktop_shown: false,

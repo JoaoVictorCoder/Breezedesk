@@ -2,12 +2,28 @@
 
 Format based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this project follows [Semantic Versioning](https://semver.org/).
 
-## [0.5.2] - 2026-11-17
+## [0.6.0] - 2026-11-18
+### Added
+- **Plume Editor** (`plume-editor.exe`): edit widgets visually (fields, colors, elements, variables, data sources), turn widgets on/off, create and delete widgets, with auto-save. Comments in the files are kept. *Edit widgets...* in the tray menu opens it.
+- **Widget packages** (`.plume`): double-click to install (with a confirmation that lists the widgets); export from the editor. Only widget file types are accepted and paths cannot leave the widgets folder.
+- **High-DPI support**: widgets follow each monitor's scaling (125%, 150%, 4K...) and stay sharp; `scale` per widget.
+- **Text**: word wrapping (`wrap`), `max_lines` with "…", `bold` and `italic`.
+- **Dates in your language** (day and month names), or any language with `time(fmt, 'pt_BR')`.
+- **Calendar** element and example.
+- **Animations**: `animate = 300` makes bars and rings slide to new values.
+- **More data**: per-core CPU (`cpu_core(n)`, `cpu_cores`), top processes (`top_name(i)`, `top_cpu(i)`, `top_mem(i)`, `topmem_*`), `ping(host)`, LibreHardwareMonitor sensors (`sensor(name)`, and better `cpu_temp`/`gpu_temp`).
+- Tray menu: show/hide each widget (remembered), *Lock positions*.
+- Dragged widgets snap to screen edges and to other widgets (Shift = free).
+- Widgets left on a disconnected monitor are moved back on screen.
+- New example: `processes.toml`.
+
 ### Changed
+- Positions and hidden widgets are saved in `plume.state` (read from `positions.state` the first time).
 - Fewer false antivirus alerts:
   - `plume.exe` now carries its icon, version information and an application manifest (runs as the normal user, DPI aware).
   - Releases are built with the Microsoft toolchain (MSVC) on Windows.
   - The installer and uninstaller ask Plume to close instead of killing the process.
+- Identical frames are not sent to Windows again; widgets with a visualizer redraw the rest of the widget only 4 times per second.
 
 ## [0.5.0] - 2026-11-17
 ### Added

@@ -27,6 +27,10 @@ pub struct ElState {
     pub history: VecDeque<f32>,
     /// Area drawn in the last frame (for mouse hit tests).
     pub bounds: Option<tiny_skia::Rect>,
+    /// Animation of bar/ring values: from → to, started at `anim_start`.
+    pub anim_from: f32,
+    pub anim_to: f32,
+    pub anim_start: Option<std::time::Instant>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]

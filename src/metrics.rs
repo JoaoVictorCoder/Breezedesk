@@ -23,12 +23,18 @@ pub mod cat {
     pub const BATTERY: u32 = 128;
     pub const MEDIA: u32 = 256;
     pub const AUDIO: u32 = 512;
+    pub const PROC: u32 = 1024;
+    pub const PING: u32 = 2048;
+    pub const SENSOR: u32 = 4096;
 }
 
 /// Which category a variable/function name belongs to.
 pub fn category(name: &str) -> u32 {
     match name {
-        "cpu" => cat::CPU,
+        "cpu" | "cpu_cores" | "cpu_core" => cat::CPU,
+        "ping" => cat::PING,
+        "sensor" => cat::SENSOR,
+        n if n.starts_with("top_") || n.starts_with("topmem_") => cat::PROC,
         "ram" | "ram_used" | "ram_total" | "ram_free" => cat::MEM,
         "cpu_temp" => cat::TEMP,
         "gpu" | "gpu_mem" | "gpu_mem_used" | "gpu_mem_total" => cat::GPU,
@@ -59,6 +65,13 @@ struct Snapshot {
     gpu_mem_used: Option<u64>,
     gpu_mem_total: Option<u64>,
     gpu_temp: Option<f32>,
+    /// Usage of each logical core.
+    cores: Vec<f32>,
+    /// (name, cpu % of the whole machine, memory bytes), by CPU and by memory.
+    top_cpu: Vec<(String, f32, u64)>,
+    top_mem: Vec<(String, f32, u64)>,
+    /// LibreHardwareMonitor / OpenHardwareMonitor sensors: (name, identifier, value).
+    sensors: Vec<(String, String, f32)>,
 }
 
 impl Default for Snapshot {
@@ -76,6 +89,10 @@ impl Default for Snapshot {
             gpu_mem_used: None,
             gpu_mem_total: None,
             gpu_temp: None,
+            cores: Vec::new(),
+            top_cpu: Vec::new(),
+            top_mem: Vec::new(),
+            sensors: Vec::new(),
         }
     }
 }
@@ -85,6 +102,9 @@ struct Shared {
     snap: Mutex<Snapshot>,
     version: AtomicU64,
     wants: AtomicU32,
+    /// Hosts asked with ping() → latest round trip in ms (None = no answer).
+    pings: Mutex<std::collections::HashMap<String, Option<f64>>>,
+    pinger_started: std::sync::atomic::AtomicBool,
 }
 
 /// System data. The slow part (reading sensors, WMI, PDH...) runs in a
@@ -167,7 +187,8 @@ impl Metrics {
             "net_down_bytes" => num(self.snap.net_down, 0),
             "net_up_bytes" => num(self.snap.net_up, 0),
             "disk" | "disk_used" | "disk_free" | "disk_total" => self.call(name, &[]),
-            "cpu_temp" => opt(self.snap.cpu_temp),
+            "cpu_temp" => opt(lhm_temp(&self.snap.sensors, "cpu").or(self.snap.cpu_temp)),
+            "cpu_cores" => num(self.snap.cores.len() as f64, 0),
             "gpu" => opt(self.snap.gpu),
             "gpu_mem_used" => Some(self.snap.gpu_mem_used.map_or(Value::Null, |b| Value::Num(b as f64 / GB, 1))),
             "gpu_mem_total" => Some(self.snap.gpu_mem_total.map_or(Value::Null, |b| Value::Num(b as f64 / GB, 1))),
@@ -175,7 +196,7 @@ impl Metrics {
                 (Some(u), Some(t)) if t > 0 => Value::Num(u as f64 * 100.0 / t as f64, 0),
                 _ => Value::Null,
             }),
-            "gpu_temp" => opt(self.snap.gpu_temp),
+            "gpu_temp" => opt(lhm_temp(&self.snap.sensors, "gpu").or(self.snap.gpu_temp)),
             "has_battery" => Some(Value::bool(self.snap.battery.is_some())),
             "battery" => opt(self.snap.battery.map(|b| b.percent)),
             "battery_charging" => Some(Value::bool(self.snap.battery.is_some_and(|b| b.charging))),
@@ -232,15 +253,56 @@ impl Metrics {
         let arg = |i: usize| args.get(i).map(|v| v.to_string()).unwrap_or_default();
         match name {
             "time" | "date" => {
+                // Day/month names in the user's language; time(fmt, 'en_US') picks one.
                 let fmt = arg(0);
                 let fmt = if fmt.is_empty() { "%H:%M" } else { fmt.as_str() };
+                let loc = crate::locale::get(&arg(1));
                 let mut out = String::new();
                 use std::fmt::Write;
                 // Invalid formats must not panic.
-                if write!(out, "{}", chrono::Local::now().format(fmt)).is_err() {
+                if write!(out, "{}", chrono::Local::now().format_localized(fmt, loc)).is_err() {
                     out = "?".into();
                 }
                 Some(Value::Str(out))
+            }
+            "cpu_core" => {
+                let n = args.first().map_or(0.0, |v| v.num()) as usize;
+                Some(self.snap.cores.get(n).map_or(Value::Null, |v| Value::Num(*v as f64, 0)))
+            }
+            "top_name" | "top_cpu" | "top_mem" | "topmem_name" | "topmem_cpu" | "topmem_mem" => {
+                let i = args.first().map_or(0.0, |v| v.num()) as usize;
+                let list = if name.starts_with("topmem") { &self.snap.top_mem } else { &self.snap.top_cpu };
+                let Some((n, cpu, mem)) = list.get(i) else { return Some(Value::Null) };
+                Some(match name.rsplit('_').next() {
+                    Some("name") => Value::Str(n.clone()),
+                    Some("cpu") => Value::Num(*cpu as f64, 1),
+                    _ => Value::Num(*mem as f64 / (1024.0 * 1024.0), 0),
+                })
+            }
+            "ping" => {
+                let host = arg(0);
+                if host.is_empty() {
+                    return Some(Value::Null);
+                }
+                let mut pings = self.shared.pings.lock().unwrap();
+                let v = pings.entry(host).or_insert(None).map_or(Value::Null, |ms| Value::Num(ms, 0));
+                drop(pings);
+                if !self.shared.pinger_started.swap(true, Ordering::SeqCst) {
+                    let shared = self.shared.clone();
+                    std::thread::spawn(move || pinger(shared));
+                }
+                Some(v)
+            }
+            "sensor" => {
+                // A LibreHardwareMonitor sensor by name ("CPU Package") or identifier.
+                let want = arg(0).to_lowercase();
+                Some(
+                    self.snap
+                        .sensors
+                        .iter()
+                        .find(|(n, id, _)| n.to_lowercase() == want || id.to_lowercase() == want)
+                        .map_or(Value::Null, |(_, _, v)| Value::Num(*v as f64, crate::script::decimals(*v as f64).min(1))),
+                )
             }
             "disk" | "disk_used" | "disk_free" | "disk_total" => {
                 let drive = arg(0);
@@ -276,6 +338,7 @@ fn sampler(shared: Arc<Shared>) {
     let mut disks: Option<Disks> = None;
     let mut comps: Option<Components> = None;
     let mut probe = Probe::default();
+    let mut lhm = crate::lhm::Lhm::default();
     let mut snap = Snapshot::default();
     let mut last = Instant::now();
     sys.refresh_memory();
@@ -288,6 +351,32 @@ fn sampler(shared: Arc<Shared>) {
         if w & cat::CPU != 0 {
             sys.refresh_cpu_usage();
             snap.cpu = sys.global_cpu_usage();
+            snap.cores = sys.cpus().iter().map(|c| c.cpu_usage()).collect();
+        }
+        if w & cat::PROC != 0 {
+            use sysinfo::{ProcessRefreshKind, ProcessesToUpdate, UpdateKind};
+            sys.refresh_processes_specifics(
+                ProcessesToUpdate::All,
+                true,
+                ProcessRefreshKind::nothing().with_cpu().with_memory().with_exe(UpdateKind::OnlyIfNotSet),
+            );
+            let cores = sys.cpus().len().max(1) as f32;
+            // Same program in several processes (browsers...) counts once.
+            let mut by_name: std::collections::HashMap<String, (f32, u64)> = std::collections::HashMap::new();
+            for p in sys.processes().values() {
+                let name = p.name().to_string_lossy().trim_end_matches(".exe").to_string();
+                if name.is_empty() || name == "System Idle Process" || name == "Idle" {
+                    continue;
+                }
+                let e = by_name.entry(name).or_default();
+                e.0 += p.cpu_usage() / cores;
+                e.1 += p.memory();
+            }
+            let mut list: Vec<(String, f32, u64)> = by_name.into_iter().map(|(n, (c, m))| (n, c, m)).collect();
+            list.sort_by(|a, b| b.1.total_cmp(&a.1));
+            snap.top_cpu = list.iter().take(10).cloned().collect();
+            list.sort_by_key(|x| std::cmp::Reverse(x.2));
+            snap.top_mem = list.into_iter().take(10).collect();
         }
         sys.refresh_memory();
         snap.ram_used = sys.used_memory();
@@ -317,7 +406,10 @@ fn sampler(shared: Arc<Shared>) {
                 })
                 .collect();
         }
-        if w & cat::TEMP != 0 {
+        if w & (cat::TEMP | cat::GPU_TEMP | cat::SENSOR) != 0 {
+            snap.sensors = lhm.read();
+        }
+        if w & cat::TEMP != 0 && lhm_temp(&snap.sensors, "cpu").is_none() {
             let c = comps.get_or_insert_with(Components::new_with_refreshed_list);
             c.refresh(true);
             snap.cpu_temp = cpu_temperature(c);
@@ -341,6 +433,30 @@ fn sampler(shared: Arc<Shared>) {
 const DEFAULT_DRIVE: &str = "C:";
 #[cfg(not(windows))]
 const DEFAULT_DRIVE: &str = "/";
+
+/// CPU or GPU temperature from LibreHardwareMonitor sensors, if it is running.
+fn lhm_temp(sensors: &[(String, String, f32)], kind: &str) -> Option<f32> {
+    let temps = sensors.iter().filter(|(_, id, _)| id.contains("/temperature/"));
+    let of_kind: Vec<&(String, String, f32)> = temps.filter(|(_, id, _)| id.split('/').nth(1).is_some_and(|d| d.contains(kind))).collect();
+    // Prefer the package / core sensor, otherwise the hottest one.
+    let preferred = ["cpu package", "core (tctl/tdie)", "core average", "gpu core", "gpu hot spot"];
+    preferred
+        .iter()
+        .find_map(|p| of_kind.iter().find(|(n, _, _)| n.to_lowercase() == *p).map(|(_, _, v)| *v))
+        .or_else(|| of_kind.iter().map(|(_, _, v)| *v).reduce(f32::max))
+}
+
+/// Background thread: pings every host asked with ping(), every 5 seconds.
+fn pinger(shared: Arc<Shared>) {
+    loop {
+        let hosts: Vec<String> = shared.pings.lock().unwrap().keys().cloned().collect();
+        for h in hosts {
+            let ms = crate::ping::ping(&h);
+            shared.pings.lock().unwrap().insert(h, ms);
+        }
+        std::thread::sleep(Duration::from_secs(5));
+    }
+}
 
 fn cpu_temperature(comps: &Components) -> Option<f32> {
     let temps: Vec<(String, f32)> = comps
