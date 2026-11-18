@@ -2,6 +2,8 @@
 
 Lightweight desktop widgets for Windows, in the spirit of Rainmeter, written in Rust and built to use as little CPU and RAM as possible.
 
+**Website:** https://joaovictorcoder.github.io/Plume/
+
 ![preview](preview.png)
 
 ## Features

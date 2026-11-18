@@ -5,6 +5,12 @@ name: Release
 on:
   push:
     branches: [main]
+    # Changes to the website, docs or workflows alone don't make a release.
+    paths-ignore:
+      - "site/**"
+      - "**.md"
+      - "preview.png"
+      - ".github/**"
   workflow_dispatch:
 
 permissions:
